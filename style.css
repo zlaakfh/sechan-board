@@ -562,7 +562,90 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 }
 .chart-tip.on { opacity: .96; }
 .chart-tip b { font-weight: 800; }
+.chart-tip .dash-tip-sub { display: block; opacity: .7; font-size: 10px; }
 .stock-note { margin: 8px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--text-3); }
+
+/* ---------- 가계부 대시보드 ---------- */
+.dash .section-head { margin-bottom: 12px; }
+.dash-cards { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .dash-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dash-card {
+  display: grid; gap: 2px; align-content: start; min-width: 0;
+  padding: 10px 11px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.dash-card .dc-label { font-size: 10.5px; font-weight: 650; color: var(--text-3); }
+.dash-card .dc-value {
+  font-size: 15px; font-weight: 800; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.3;
+}
+.dash-card .dc-delta {
+  justify-self: start; margin-top: 3px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 800;
+  background: var(--amber-soft); color: var(--amber);
+}
+.dash-card .dc-note { margin-top: 3px; font-size: 10px; line-height: 1.45; color: var(--text-3); }
+.dash-card.warn { background: var(--amber-soft); border-color: color-mix(in srgb, var(--amber) 28%, var(--line)); }
+.dash-card.warn .dc-label { color: var(--amber); }
+.dash-card.sub { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); }
+.dash-card.sub .dc-label { color: var(--accent-ink); }
+.dash-card.sub .dc-note { color: var(--text-2); }
+
+.dash-sub { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
+.dash-sub h3 { font-size: 12.5px; font-weight: 750; }
+.dash-unit { flex: 0 0 auto; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dash-note { margin: 8px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--text-3); }
+.dash-note.dash-fresh { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
+
+#dash-month { position: relative; }
+#dash-month svg { display: block; width: 100%; height: auto; overflow: visible; }
+.dash-bar { fill: var(--accent); opacity: .3; transition: opacity .12s ease; }
+.dash-bar.last { opacity: .92; }
+.dash-bar.on { opacity: 1; }
+.dash-bar-val { fill: var(--text-3); font-size: 8.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dash-bar-val.last { fill: var(--accent-ink); }
+.dash-budget { stroke: var(--red); stroke-width: 1.3; stroke-dasharray: 5 4; opacity: .55; }
+.dash-budget-label { fill: var(--red); font-size: 9px; font-weight: 800; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.dash-cats { display: grid; gap: 9px; }
+.dash-cat { display: grid; gap: 4px; min-width: 0; }
+.dash-cat-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.dash-cat-top .dc-name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 650; color: var(--text);
+}
+.dash-cat-top .dc-amt { flex: 0 0 auto; font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.dash-cat-top .dc-pct {
+  flex: 0 0 auto; width: 40px; text-align: right;
+  font-size: 10.5px; font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums;
+}
+.dash-cat-bar { height: 7px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
+.dash-cat-bar i {
+  display: block; height: 100%; border-radius: 999px; min-width: 2px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 52%, var(--surface)));
+}
+
+.dash-groups { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .dash-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dash-group {
+  min-width: 0; padding: 10px 11px;
+  background: var(--surface-2); border: 1px solid var(--line); border-left-width: 3px;
+  border-radius: var(--radius-sm);
+}
+.dash-group.fixed { border-left-color: var(--red); }
+.dash-group.daily { border-left-color: var(--accent); }
+.dash-group.once { border-left-color: var(--amber); }
+.dg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.dg-head .dg-title { font-size: 11.5px; font-weight: 800; color: var(--text); }
+.dg-head strong { flex: 0 0 auto; font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dg-hint { margin: 1px 0 6px; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dash-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.dash-group li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  font-size: 11px; line-height: 1.45; color: var(--text-2);
+}
+.dash-group li span { min-width: 0; overflow-wrap: anywhere; }
+.dash-group li b { flex: 0 0 auto; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.dash-group li.no-val b { color: var(--text-3); font-weight: 650; }
 
 /* ---------- 날짜별 브리핑 아카이브 ---------- */
 .archive { display: grid; gap: 14px; }

@@ -81,6 +81,13 @@
         mergeWrongNotes(c.wrongNotes, sc.wrongNotes);
       });
     });
+    // 가계부 대시보드: 시드에 있고 이 기기에 없을 때만 채웠다(이미 받은 갱신본은 그대로).
+    seed.categories.forEach(function (sc) {
+      if (!sc.dashboard) return;
+      s.categories.forEach(function (c) {
+        if (c.id === sc.id && !c.dashboard) c.dashboard = clone(sc.dashboard);
+      });
+    });
     // 기본 데이터가 갱신되면, 사용자가 남긴 체크·메모는 그대로 두고 새 항목만 더한다.
     if (Number(s.seedVersion || 0) < Number(window.SEED.version || 1)) {
       mergeSeed(s);
@@ -142,6 +149,7 @@
         if (!target.wrongNotes || typeof target.wrongNotes !== "object") target.wrongNotes = { sentences: [], words: [] };
         mergeWrongNotes(target.wrongNotes, sc.wrongNotes);
       }
+      if (sc.dashboard && !target.dashboard) target.dashboard = clone(sc.dashboard);
     });
     if (seed.deadlines) s.deadlines = clone(seed.deadlines);
     // 종목별 시세: 서버에 이미 있는 기록은 그대로 두고, 새 종목·새 날짜만 더한다.
@@ -691,6 +699,215 @@
     bindNoteBoxes(cat);
   }
 
+  /* ---------- 가계부 대시보드 (spending.dashboard) ---------- */
+  function dashOf(cat) {
+    var d = cat && cat.dashboard;
+    return (d && typeof d === "object") ? d : null;
+  }
+  function wonLabel(n) {
+    return (n == null || !isFinite(n)) ? "—" : Number(n).toLocaleString("ko-KR") + "원";
+  }
+  function manShort(n) {
+    if (n == null || !isFinite(n)) return "—";
+    return (Math.round((n / 10000) * 10) / 10).toFixed(1).replace(/\.0$/, "");
+  }
+  function monthLabel(m) {
+    if (!m) return "";
+    if (m.label) return String(m.label);
+    var x = String(m.month || "").match(/^(\d{4})-(\d{2})$/);
+    return x ? ((+x[2]) + "월") : String(m.month || "");
+  }
+
+  function sectionDashboard(cat) {
+    var d = dashOf(cat);
+    if (!d) return "";
+    var meta = d.period || (d.updatedAt ? d.updatedAt + " 갱신" : "");
+    var html = '<section class="section dash"><div class="section-head"><h2>💸 가계부 대시보드</h2>' +
+      (meta ? '<span class="muted">' + esc(meta) + '</span>' : '') + '</div>';
+
+    if (Array.isArray(d.cards) && d.cards.length) {
+      html += '<div class="dash-cards">';
+      d.cards.forEach(function (c) {
+        if (!c) return;
+        html += '<div class="dash-card ' + esc(c.tone || "base") + '">' +
+          '<span class="dc-label">' + esc(c.label || "") + '</span>' +
+          '<strong class="dc-value">' + esc(c.display || wonLabel(c.value)) + '</strong>' +
+          (c.delta ? '<span class="dc-delta">' + esc(c.delta) + '</span>' : '') +
+          (c.note ? '<span class="dc-note">' + esc(c.note) + '</span>' : '') +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (Array.isArray(d.months) && d.months.length) {
+      html += '<div class="dash-sub"><h3>' + esc(d.monthTitle || "월별 지출 추이") + '</h3>' +
+        '<span class="dash-unit">단위: 만 원</span></div>' +
+        '<div id="dash-month"></div>' +
+        (d.monthNote ? '<p class="dash-note">' + esc(d.monthNote) + '</p>' : '');
+    }
+
+    if (Array.isArray(d.categories) && d.categories.length) {
+      var total = d.categories.reduce(function (s, c) {
+        return s + (c && isFinite(+c.value) ? +c.value : 0);
+      }, 0);
+      html += '<div class="dash-sub"><h3>' + esc(d.categoryTitle || "카테고리별 지출 비중") + '</h3>' +
+        '<span class="dash-unit">합계 ' + manShort(total) + '만 원</span></div><div class="dash-cats">';
+      d.categories.forEach(function (c) {
+        if (!c) return;
+        var v = isFinite(+c.value) ? +c.value : 0;
+        var pct = total ? (v / total) * 100 : 0;
+        var shown = c.pct != null && isFinite(+c.pct) ? +c.pct : Math.round(pct * 10) / 10;
+        html += '<div class="dash-cat"><div class="dash-cat-top">' +
+          '<span class="dc-name">' + esc((c.emoji ? c.emoji + " " : "") + (c.label || "")) + '</span>' +
+          '<span class="dc-amt">' + wonLabel(v) + '</span>' +
+          '<span class="dc-pct">' + shown.toFixed(1) + '%</span>' +
+          '</div><div class="dash-cat-bar"><i style="width:' + Math.max(1, pct).toFixed(1) + '%"></i></div></div>';
+      });
+      html += '</div>' + (d.categoryNote ? '<p class="dash-note">' + esc(d.categoryNote) + '</p>' : '');
+    }
+
+    if (Array.isArray(d.groups) && d.groups.length) {
+      html += '<div class="dash-sub"><h3>' + esc(d.groupTitle || "지출 성격별 3분류") + '</h3></div>' +
+        '<div class="dash-groups">';
+      d.groups.forEach(function (g) {
+        if (!g) return;
+        html += '<div class="dash-group ' + esc(g.tone || "") + '">' +
+          '<div class="dg-head"><span class="dg-title">' + esc(g.title || "") + '</span>' +
+          '<strong>' + wonLabel(g.total) + '</strong></div>' +
+          (g.hint ? '<p class="dg-hint">' + esc(g.hint) + '</p>' : '') + '<ul>';
+        (g.items || []).forEach(function (it) {
+          if (!it) return;
+          html += '<li' + (it.value == null ? ' class="no-val"' : '') + '>' +
+            '<span>' + esc(it.label || "") + '</span>' +
+            '<b>' + (it.value == null ? esc(it.note || "확인 중") : wonLabel(it.value)) + '</b></li>';
+        });
+        html += '</ul></div>';
+      });
+      html += '</div>' + (d.groupNote ? '<p class="dash-note">' + esc(d.groupNote) + '</p>' : '');
+    }
+
+    if (d.freshNote) html += '<p class="dash-note dash-fresh">' + esc(d.freshNote) + '</p>';
+    return html + '</section>';
+  }
+
+  function drawDashMonth() {
+    var host = $("dash-month");
+    if (!host) return;
+    var d = dashOf(currentCat());
+    if (!d || !Array.isArray(d.months)) { host.innerHTML = ""; return; }
+    var ms = d.months.filter(function (m) { return m && isFinite(+m.value); }).map(function (m) {
+      return { label: monthLabel(m), value: +m.value };
+    });
+    if (!ms.length) { host.innerHTML = ""; return; }
+    var budget = (d.budget && isFinite(+d.budget.value) && +d.budget.value > 0) ? +d.budget.value : null;
+    var budgetMan = budget ? budget / 10000 : null;
+
+    var W = Math.max(240, Math.round(host.clientWidth || 320));
+    var H = 208, padL = 32, padR = 8, padT = 34, padB = 24;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var peak = Math.max.apply(null, ms.map(function (m) { return m.value / 10000; }).concat(budgetMan ? [budgetMan] : []));
+    var step = peak > 300 ? 100 : 50;
+    var top = Math.max(step, Math.ceil(peak / step) * step);
+    function Y(v) { return padT + ih - (v / top) * ih; }
+
+    var grid = "", axis = "";
+    for (var t = 0; t <= top; t += step) {
+      var gy = Y(t);
+      grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '"/>';
+      axis += '<text x="' + (padL - 6) + '" y="' + (gy + 3.2).toFixed(1) + '" text-anchor="end">' + num(t) + '</text>';
+    }
+
+    var slot = iw / ms.length;
+    var barW = Math.min(44, Math.max(10, slot * 0.56));
+    var r = Math.min(5, barW / 2);
+    var base = padT + ih;
+    var bars = "", vals = "", xlabels = "";
+    ms.forEach(function (m, i) {
+      var v = m.value / 10000;
+      var x = padL + slot * i + (slot - barW) / 2;
+      var y = Y(v), last = i === ms.length - 1;
+      var dd = 'M' + x.toFixed(1) + ' ' + base.toFixed(1) +
+        'L' + x.toFixed(1) + ' ' + (y + r).toFixed(1) +
+        'Q' + x.toFixed(1) + ' ' + y.toFixed(1) + ' ' + (x + r).toFixed(1) + ' ' + y.toFixed(1) +
+        'L' + (x + barW - r).toFixed(1) + ' ' + y.toFixed(1) +
+        'Q' + (x + barW).toFixed(1) + ' ' + y.toFixed(1) + ' ' + (x + barW).toFixed(1) + ' ' + (y + r).toFixed(1) +
+        'L' + (x + barW).toFixed(1) + ' ' + base.toFixed(1) + 'Z';
+      bars += '<path class="dash-bar' + (last ? " last" : "") + '" data-i="' + i + '" d="' + dd + '"/>';
+      vals += '<text class="dash-bar-val' + (last ? " last" : "") + '" x="' + (x + barW / 2).toFixed(1) +
+        '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle">' + manShort(m.value) + '</text>';
+      xlabels += '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="middle">' + esc(m.label) + '</text>';
+    });
+
+    var budgetSvg = "";
+    if (budgetMan) {
+      var by = Y(budgetMan);
+      budgetSvg = '<line class="dash-budget" x1="' + padL + '" y1="' + by.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + by.toFixed(1) + '"/>' +
+        '<line class="dash-budget" x1="' + padL + '" y1="12" x2="' + (padL + 16) + '" y2="12"/>' +
+        '<text class="dash-budget-label" x="' + (padL + 22) + '" y="15" text-anchor="start">' +
+        esc((d.budget.label || "예산") + " " + manShort(budget) + "만") + '</text>';
+    }
+
+    var aria = (d.monthTitle || "월별 지출 추이") + " — " + ms.map(function (m) {
+      return m.label + " " + manShort(m.value) + "만 원";
+    }).join(", ") + (budgetMan ? " / " + (d.budget.label || "예산") + " " + manShort(budget) + "만 원" : "");
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(aria) + '">' +
+      '<g class="chart-grid">' + grid + '</g>' +
+      budgetSvg + bars + vals +
+      '<g class="chart-axis">' + axis + xlabels + '</g>' +
+      '</svg>';
+
+    host.innerHTML = '<div class="chart-wrap" id="dash-month-wrap">' + svg +
+      '<div class="chart-tip" id="dash-month-tip"></div></div>';
+
+    var wrap = $("dash-month-wrap");
+    var svgEl = wrap ? wrap.querySelector("svg") : null;
+    var tip = $("dash-month-tip");
+    if (!svgEl) return;
+    var tipTimer = null;
+    function setActive(idx) {
+      Array.prototype.forEach.call(svgEl.querySelectorAll(".dash-bar"), function (b) {
+        b.classList.toggle("on", +b.getAttribute("data-i") === idx);
+      });
+    }
+    function hideTip() {
+      clearTimeout(tipTimer);
+      setActive(-1);
+      if (tip) tip.classList.remove("on");
+    }
+    function showTip(idx, sticky) {
+      var m = ms[idx];
+      if (!m || !tip) return;
+      var x = padL + slot * idx + slot / 2;
+      var y = Y(m.value / 10000);
+      setActive(idx);
+      tip.innerHTML = '<b>' + esc(m.label) + '</b> ' + manShort(m.value) + '만 원' +
+        '<span class="dash-tip-sub">' + wonLabel(m.value) + '</span>';
+      tip.style.left = Math.max(14, Math.min(86, (x / W) * 100)) + '%';
+      tip.style.top = Math.max(24, y) + 'px';
+      tip.classList.add("on");
+      clearTimeout(tipTimer);
+      if (sticky) tipTimer = setTimeout(hideTip, 3600);
+    }
+    function pick(ev) {
+      var rect = svgEl.getBoundingClientRect();
+      if (!rect.width) return;
+      var px = (ev.clientX - rect.left) * (W / rect.width);
+      var idx = Math.floor((px - padL) / slot);
+      if (idx < 0) idx = 0;
+      if (idx > ms.length - 1) idx = ms.length - 1;
+      showTip(idx, ev.pointerType !== "mouse");
+    }
+    svgEl.addEventListener("pointermove", function (ev) {
+      if (ev.pointerType === "mouse" || ev.buttons) pick(ev);
+    });
+    svgEl.addEventListener("pointerdown", pick);
+    svgEl.addEventListener("pointerleave", function (ev) {
+      if (!ev.pointerType || ev.pointerType === "mouse") hideTip();
+    });
+    svgEl.addEventListener("pointercancel", hideTip);
+  }
+
   /* ---------- 주가 · 수익률 그래프 ---------- */
   var chartUi = { key: null, mode: "price" };
 
@@ -986,13 +1203,14 @@
       '<div class="detail-status"><select class="status-select" id="detail-status" aria-label="상태 변경">' + opts + '</select></div>' +
       '</div>' +
       '<div class="detail-wrap">' +
-        '<div class="detail-col">' + sectionReport(cat) + sectionWrongNotes(cat) +
+        '<div class="detail-col">' + sectionReport(cat) + sectionDashboard(cat) + sectionWrongNotes(cat) +
           sectionCharts(cat) +
           (cat.archive ? sectionArchive(cat) : sectionProgress(cat)) + '</div>' +
         '<div class="detail-col">' + sectionTodos(cat) + sectionChecklist(cat) + sectionMemos(cat) + '</div>' +
       '</div>';
     $("detail-view").innerHTML = html;
     drawChart();
+    drawDashMonth();
 
     $("btn-back").addEventListener("click", goBack);
     $("detail-status").addEventListener("change", function (e) {
@@ -1224,7 +1442,7 @@
     var chartResizeTimer = null;
     window.addEventListener("resize", function () {
       clearTimeout(chartResizeTimer);
-      chartResizeTimer = setTimeout(function () { drawChart(); }, 160);
+      chartResizeTimer = setTimeout(function () { drawChart(); drawDashMonth(); }, 160);
     });
 
     // iOS PWA: 화면 키보드가 올라온 만큼만 하단 입력창을 띄운다.
