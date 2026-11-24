@@ -54,6 +54,10 @@
   f.addEventListener("load", function () {
     setTimeout(function () {
       var d = f.contentDocument;
+      // 아이폰처럼 스크롤바가 폭을 잡지 않게 (미리보기 전용)
+      var st = d.createElement("style");
+      st.textContent = "::-webkit-scrollbar{width:0;height:0}html{scrollbar-width:none}";
+      d.head.appendChild(st);
       var c = d.getElementById("composer");
       if (c) c.style.display = "none";
       var w = d.querySelector(".wrap");
