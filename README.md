@@ -30,7 +30,8 @@
 }
 ```
 
-- 기본 키: `nvidia` `tesla` `tiger_sp500` `kodex_ndx100` `krx_gold` (키를 새로 만들면 탭도 새로 생깁니다)
+- 기본 키: `nvidia` `tesla` `tiger_sp500` `kodex_ndx100` `krx_gold` `sgov` `usdkrw` (키를 새로 만들면 탭도 새로 생깁니다)
+- 표시 순서는 각 종목의 `order`(작을수록 앞)이고, `unit`은 `원`·`달러`처럼 그대로 화면에 붙습니다.
 - `avgPrice`를 채우면 평단 점선과 `수익률` 탭이 함께 열립니다.
 
 ```jsonc
