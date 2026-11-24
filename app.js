@@ -64,6 +64,7 @@
     // 기본 PIN을 바꿨을 때, 사용자가 직접 바꾼 적 없는 기기는 새 기본값을 따른다.
     if (!s.pinCustom && s.pin !== defaultPin()) s.pin = defaultPin();
     if (!Array.isArray(s.deadlines)) s.deadlines = seed.deadlines;
+    if (!s.stockCharts || typeof s.stockCharts !== "object") s.stockCharts = clone(seed.stockCharts || {});
     s.categories.forEach(function (c) {
       c.todos = c.todos || [];
       c.checklist = c.checklist || [];
@@ -115,6 +116,24 @@
       mergeList(target.memos, sc.memos);
     });
     if (seed.deadlines) s.deadlines = clone(seed.deadlines);
+    // 종목별 시세: 서버에 이미 있는 기록은 그대로 두고, 새 종목·새 날짜만 더한다.
+    if (seed.stockCharts) {
+      s.stockCharts = s.stockCharts || {};
+      Object.keys(seed.stockCharts).forEach(function (k) {
+        var ss = seed.stockCharts[k], t = s.stockCharts[k];
+        if (!t) { s.stockCharts[k] = clone(ss); return; }
+        if (!Array.isArray(t.points)) t.points = [];
+        var seen = {};
+        t.points.forEach(function (p) { if (p && p.date) seen[p.date] = true; });
+        (ss.points || []).forEach(function (p) {
+          if (p && p.date && !seen[p.date]) { t.points.push(clone(p)); seen[p.date] = true; }
+        });
+        if (t.label == null) t.label = ss.label;
+        if (t.sub == null) t.sub = ss.sub;
+        if (t.unit == null) t.unit = ss.unit;
+        if (t.avgPrice == null && ss.avgPrice != null) t.avgPrice = ss.avgPrice;
+      });
+    }
   }
 
   function initWithSeed() {
@@ -133,8 +152,11 @@
     markDirty();
   }
   var state = loadState();
+  // 초기화 저장은 '수정'이 아니므로 savedAt·dirty를 건드리지 않는다.
+  // (건드리면 이 기기의 오래된 사본이 서버보다 최신으로 보여 서버 데이터를 덮어쓴다.)
+  var bootSavedAt = state.savedAt || null;
   state.seedVersion = window.SEED.version;
-  save();
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
 
   /* ---------- 원격 저장소 (Supabase) ---------- */
   var CFG = window.SUPABASE_CONFIG || null;
@@ -200,7 +222,7 @@
       }
       var row = rows[0];
       var ts = Date.parse(row.updated_at) || 0;
-      var localTs = Date.parse(state.savedAt || 0) || 0;
+      var localTs = Date.parse(bootSavedAt || 0) || 0;
       remoteReady = true;
       // 첫 로드에 이 기기의 수정본이 서버보다 더 최근이면 서버로 올린다.
       if (initial && localTs > ts + 2000) { pushRemote(); setBadge("saving"); return false; }
@@ -213,10 +235,15 @@
     }).catch(function () {
       remoteReady = true;
       setBadge("offline");
+      pendingPush = false;
       return false;
+    }).then(function (res) {
+      if (pendingPush) { pendingPush = false; pushRemote(); }
+      return res;
     });
   }
 
+  var pendingPush = false;
   function pushRemote() {
     if (!remoteOn() || !remoteReady) return;
     clearTimeout(pushTimer);
@@ -225,6 +252,7 @@
 
   function doPush() {
     if (!remoteOn()) return;
+    if (!remoteReady) { pendingPush = true; return; }
     if (remoteBusy) { clearTimeout(pushTimer); pushTimer = setTimeout(doPush, 500); return; }
     remoteBusy = true;
     setBadge("saving");
@@ -517,6 +545,276 @@
     return html;
   }
 
+  /* ---------- 주가 · 수익률 그래프 ---------- */
+  var chartUi = { key: null, mode: "price" };
+
+  function num(n) {
+    if (n == null || isNaN(n)) return "—";
+    return Number(n).toLocaleString("ko-KR");
+  }
+  function signed(r, digits) {
+    if (r == null || !isFinite(r)) return "—";
+    return (r > 0 ? "+" : "") + (r * 100).toFixed(digits == null ? 1 : digits) + "%";
+  }
+  function mdLabel(iso) {
+    var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? (+m[2]) + "/" + (+m[3]) : String(iso || "");
+  }
+  function isoDate(iso) {
+    var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? new Date(+m[1], (+m[2]) - 1, +m[3]) : null;
+  }
+  function chartState() {
+    var all = state.stockCharts || {};
+    var keys = Object.keys(all).filter(function (k) {
+      return all[k] && Array.isArray(all[k].points);
+    });
+    if (!keys.length) return null;
+    // 서버(JSONB)는 키 순서를 보장하지 않으므로 order → 라벨 순으로 정렬한다.
+    keys.sort(function (a, b) {
+      var oa = typeof all[a].order === "number" ? all[a].order : 999;
+      var ob = typeof all[b].order === "number" ? all[b].order : 999;
+      if (oa !== ob) return oa - ob;
+      return String(all[a].label || a).localeCompare(String(all[b].label || b), "ko");
+    });
+    if (!chartUi.key || keys.indexOf(chartUi.key) < 0) chartUi.key = keys[0];
+    return { keys: keys, key: chartUi.key, s: all[chartUi.key] };
+  }
+  function chartPoints(s) {
+    var byDate = {};
+    (s.points || []).forEach(function (p) {
+      if (p && p.date && typeof p.price === "number" && isFinite(p.price)) byDate[String(p.date)] = p.price;
+    });
+    return Object.keys(byDate).sort().map(function (d) { return { date: d, price: byDate[d] }; });
+  }
+
+  function sectionCharts(cat) {
+    if (!cat.hasCharts) return "";
+    var c = chartState();
+    var html = '<section class="section"><div class="section-head"><h2>📈 주가 · 수익률 추이</h2><span class="muted">매일 1포인트 기록</span></div>';
+    if (!c) return html + '<p class="muted-empty">아직 기록된 시세가 없습니다.</p></section>';
+    html += '<div class="stock-tabs" id="stock-tabs" role="tablist" aria-label="종목 선택">';
+    c.keys.forEach(function (k) {
+      var s = state.stockCharts[k];
+      var on = k === c.key;
+      html += '<button type="button" class="stock-tab' + (on ? " on" : "") + '" role="tab" aria-selected="' + (on ? "true" : "false") + '" data-stock="' + esc(k) + '">' +
+        '<span class="st-name">' + esc(s.label || k) + '</span>' +
+        '<span class="st-avg">' + (s.avgPrice ? '평단 ' + num(s.avgPrice) + '원' : '평단 미기록') + '</span>' +
+        '</button>';
+    });
+    html += '</div><div id="stock-chart"></div>' +
+      '<p class="stock-note">국내 ETF·금은 한국거래소 정규장 종가, 엔비디아·테슬라는 토스증권 원화 환산 시세입니다. 클피가 브리핑할 때마다 하루치를 이어 붙입니다.</p></section>';
+    return html;
+  }
+
+  function drawChart() {
+    var host = $("stock-chart");
+    if (!host) return;
+    var c = chartState();
+    if (!c) { host.innerHTML = ""; return; }
+    var s = c.s;
+    var pts = chartPoints(s);
+    var avg = (typeof s.avgPrice === "number" && s.avgPrice > 0) ? s.avgPrice : null;
+    var last = pts.length ? pts[pts.length - 1] : null;
+    var prev = pts.length > 1 ? pts[pts.length - 2] : null;
+    var mode = (chartUi.mode === "return" && avg) ? "return" : "price";
+    var ret = (avg && last) ? last.price / avg - 1 : null;
+    var chg = (prev && last) ? last.price / prev.price - 1 : null;
+
+    var head = '<div class="chart-head"><div class="ss-main">' +
+      '<span class="ss-label">' + (mode === "return" ? "평단 대비 수익률" : "현재가") + '</span>' +
+      (last
+        ? '<strong>' + (mode === "return" ? signed(ret) : num(last.price) + "원") + '</strong>' +
+          '<span class="ss-date">' + mdLabel(last.date) + ' 기록 · ' + esc(s.sub || "") + '</span>'
+        : '<strong>—</strong>') +
+      '</div><div class="chart-toggle" role="tablist" aria-label="그래프 기준">' +
+        '<button type="button" data-mode="price" class="' + (mode === "price" ? "on" : "") + '">가격</button>' +
+        '<button type="button" data-mode="return"' + (avg ? ' class="' + (mode === "return" ? "on" : "") + '"' : ' disabled title="평단을 기록하면 열립니다"') + '>수익률</button>' +
+      '</div></div>';
+
+    var summary = '<div class="ss-grid">' +
+      '<div><span>평단</span><strong>' + (avg ? num(avg) + "원" : "미기록") + '</strong></div>' +
+      (ret != null ? '<div><span>평단 대비</span><strong class="' + (ret >= 0 ? "up" : "down") + '">' + signed(ret) + '</strong></div>' : '') +
+      (chg != null ? '<div><span>직전 기록(' + mdLabel(prev.date) + ') 대비</span><strong class="' + (chg >= 0 ? "up" : "down") + '">' + signed(chg) + '</strong></div>' : '') +
+      '<div><span>기록</span><strong>' + pts.length + '일</strong></div>' +
+      '</div>';
+
+    if (!pts.length) {
+      host.innerHTML = head + summary + '<p class="muted-empty">아직 시세 기록이 없습니다. 다음 브리핑부터 하루치씩 쌓입니다.</p>';
+      return;
+    }
+
+    var W = Math.max(240, Math.round(host.clientWidth || 320));
+    var H = 200, padL = 56, padR = 12, padT = 16, padB = 22;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var vals = pts.map(function (p) { return mode === "return" ? p.price / avg - 1 : p.price; });
+    if (mode === "price" && avg) vals.push(avg);
+    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+    if (mode === "return") {
+      var m = Math.max(Math.abs(mn), Math.abs(mx), 0.01) * 1.25;
+      mn = -m; mx = m;
+    } else {
+      var span = mx - mn;
+      if (!isFinite(span) || span < mx * 0.004) { mn -= (mx * 0.03 || 1); mx += (mx * 0.03 || 1); }
+      else { mn -= span * 0.14; mx += span * 0.14; }
+    }
+    function X(i) { return pts.length === 1 ? padL + iw / 2 : padL + (i / (pts.length - 1)) * iw; }
+    function Y(v) { return padT + ih - ((v - mn) / (mx - mn)) * ih; }
+    function valAt(p) { return mode === "return" ? p.price / avg - 1 : p.price; }
+
+    var grid = "", axis = "";
+    for (var t = 0; t <= 4; t++) {
+      var gv = mx - (mx - mn) * (t / 4);
+      var gy = Y(gv);
+      grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '"/>';
+      axis += '<text x="' + (padL - 7) + '" y="' + (gy + 3.2).toFixed(1) + '" text-anchor="end">' +
+        (mode === "return" ? signed(gv, 1) : num(Math.round(gv))) + '</text>';
+    }
+
+    var avgLine = "";
+    if (avg) {
+      var ay = Y(mode === "return" ? 0 : avg);
+      avgLine = '<line class="chart-avg" x1="' + padL + '" y1="' + ay.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + ay.toFixed(1) + '"/>' +
+        '<text class="chart-avg-label" x="' + (W - padR) + '" y="' + (ay - 5).toFixed(1) + '" text-anchor="end">평단 ' + num(avg) + '원</text>';
+    }
+
+    var path = "", dots = "";
+    pts.forEach(function (p, i) {
+      var px = X(i), py = Y(valAt(p));
+      path += (i ? "L" : "M") + px.toFixed(1) + " " + py.toFixed(1);
+      dots += '<circle class="chart-dot' + (i === pts.length - 1 ? " last" : "") + '" cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + (i === pts.length - 1 ? 4 : 2.6) + '"/>';
+    });
+    var area = "";
+    if (pts.length > 1) {
+      area = '<path class="chart-area" d="' + path +
+        'L' + X(pts.length - 1).toFixed(1) + ' ' + (padT + ih) +
+        'L' + X(0).toFixed(1) + ' ' + (padT + ih) + 'Z"/>';
+    }
+
+    var xi = [0];
+    if (pts.length > 2) xi.push(Math.floor((pts.length - 1) / 2));
+    if (pts.length > 1) xi.push(pts.length - 1);
+    xi = xi.filter(function (v, i2, arr) { return arr.indexOf(v) === i2; });
+    var xlabels = "";
+    xi.forEach(function (i) {
+      var anchor = pts.length === 1 ? "middle" : (i === 0 ? "start" : (i === pts.length - 1 ? "end" : "middle"));
+      xlabels += '<text x="' + X(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="' + anchor + '">' + mdLabel(pts[i].date) + '</text>';
+    });
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" preserveAspectRatio="none" role="img" aria-label="' +
+        esc((s.label || "") + " " + (mode === "return" ? "수익률" : "가격") + " 추이") + '">' +
+      '<g class="chart-grid">' + grid + '</g>' +
+      area +
+      avgLine +
+      '<path class="chart-line" d="' + path + '"/>' +
+      dots +
+      '<g class="chart-axis">' + axis + xlabels + '</g>' +
+      '<line class="chart-guide" id="chart-guide" x1="0" y1="' + padT + '" x2="0" y2="' + (padT + ih) + '"/>' +
+      '<circle class="chart-focus" id="chart-focus" r="4.5" cx="0" cy="0" opacity="0"/>' +
+      '</svg>';
+
+    host.innerHTML = head + summary +
+      '<div class="chart-wrap" id="chart-wrap">' + svg + '<div class="chart-tip" id="chart-tip"></div></div>' +
+      (pts.length === 1 ? '<p class="stock-note">첫 기록입니다. 내일 기록이 더해지면 선으로 이어집니다.</p>' : '');
+
+    var wrap = $("chart-wrap");
+    var svgEl = wrap ? wrap.querySelector("svg") : null;
+    if (!svgEl) return;
+    var tip = $("chart-tip"), guide = $("chart-guide"), focus = $("chart-focus");
+    function hideTip() {
+      if (guide) guide.classList.remove("on");
+      if (focus) focus.setAttribute("opacity", "0");
+      if (tip) tip.classList.remove("on");
+    }
+    function showTip(i) {
+      var p = pts[i], px = X(i), py = Y(valAt(p));
+      if (guide) { guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.classList.add("on"); }
+      if (focus) { focus.setAttribute("cx", px); focus.setAttribute("cy", py); focus.setAttribute("opacity", "1"); }
+      if (!tip) return;
+      tip.innerHTML = '<b>' + mdLabel(p.date) + '</b> ' + num(p.price) + '원' +
+        (avg ? ' · ' + signed(p.price / avg - 1) : '');
+      tip.style.left = Math.max(18, Math.min(82, (px / W) * 100)) + '%';
+      tip.style.top = Math.max(22, py) + 'px';
+      tip.classList.add("on");
+    }
+    function pick(ev) {
+      var r = svgEl.getBoundingClientRect();
+      if (!r.width) return;
+      var px = (ev.clientX - r.left) * (W / r.width);
+      var best = 0, bd = Infinity;
+      for (var i = 0; i < pts.length; i++) {
+        var dd = Math.abs(X(i) - px);
+        if (dd < bd) { bd = dd; best = i; }
+      }
+      showTip(best);
+    }
+    svgEl.addEventListener("pointermove", pick);
+    svgEl.addEventListener("pointerdown", pick);
+    svgEl.addEventListener("pointerleave", hideTip);
+    svgEl.addEventListener("pointercancel", hideTip);
+  }
+
+  /* ---------- 날짜별 브리핑 아카이브 ---------- */
+  function archiveTagClass(tag) {
+    if (/긴급|속보/.test(tag)) return " urgent";
+    if (/주식|브리핑/.test(tag)) return " stock";
+    if (/아침|뉴스/.test(tag)) return " morning";
+    return "";
+  }
+  function archiveGroups(cat) {
+    var items = (cat.progress || []).map(function (it) {
+      var d = String(it.date || "").trim();
+      var time = String(it.time || "").trim();
+      var iso = "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
+      else {
+        var m = d.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+        if (m) {
+          iso = new Date().getFullYear() + "-" + pad(+m[1]) + "-" + pad(+m[2]);
+          if (!time && m[3]) time = pad(+m[3]) + ":" + m[4];
+        }
+      }
+      return { iso: iso || d, time: time, tag: it.tag || "기록", text: it.text || "" };
+    });
+    items.sort(function (a, b) {
+      if (a.iso !== b.iso) return a.iso < b.iso ? 1 : -1;
+      if (a.time === b.time) return 0;
+      return a.time < b.time ? 1 : -1;
+    });
+    var groups = [];
+    items.forEach(function (it) {
+      var g = groups[groups.length - 1];
+      if (!g || g.iso !== it.iso) { g = { iso: it.iso, items: [] }; groups.push(g); }
+      g.items.push(it);
+    });
+    return groups;
+  }
+  function sectionArchive(cat) {
+    var total = (cat.progress || []).length;
+    var html = '<section class="section"><div class="section-head"><h2>🗂️ 날짜별 브리핑 · 긴급속보</h2><span class="muted">' + total + '건</span></div>';
+    if (!total) return html + '<p class="muted-empty">아직 쌓인 브리핑이 없습니다.</p></section>';
+    html += '<div class="archive">';
+    archiveGroups(cat).forEach(function (g) {
+      var d = isoDate(g.iso);
+      var label = d ? (d.getMonth() + 1) + "월 " + d.getDate() + "일" : g.iso;
+      var wd = d ? "(" + WEEKDAY[d.getDay()] + ")" : "";
+      html += '<div class="archive-day"><div class="archive-day-head">' +
+        '<span class="archive-date">' + esc(label) + '</span>' +
+        '<span class="archive-wd">' + esc(wd) + '</span>' +
+        '<span class="archive-count">' + g.items.length + '건</span></div><ul class="archive-items">';
+      g.items.forEach(function (it) {
+        var tc = archiveTagClass(it.tag);
+        html += '<li class="archive-item' + (tc === " urgent" ? " is-urgent" : "") + '">' +
+          '<div class="archive-meta">' + (it.time ? '<span class="archive-time">' + esc(it.time) + '</span>' : '') +
+          '<span class="archive-tag' + tc + '">' + esc(it.tag) + '</span></div>' +
+          '<p class="archive-text">' + esc(it.text) + '</p></li>';
+      });
+      html += '</ul></div>';
+    });
+    html += '</div></section>';
+    return html;
+  }
+
   function renderDetail() {
     var cat = currentCat();
     if (!cat) { location.hash = "#/"; return; }
@@ -531,10 +829,12 @@
       '<div class="detail-status"><select class="status-select" id="detail-status" aria-label="상태 변경">' + opts + '</select></div>' +
       '</div>' +
       '<div class="detail-wrap">' +
-        '<div class="detail-col">' + sectionReport(cat) + sectionProgress(cat) + '</div>' +
+        '<div class="detail-col">' + sectionReport(cat) + sectionCharts(cat) +
+          (cat.archive ? sectionArchive(cat) : sectionProgress(cat)) + '</div>' +
         '<div class="detail-col">' + sectionTodos(cat) + sectionChecklist(cat) + sectionMemos(cat) + '</div>' +
       '</div>';
     $("detail-view").innerHTML = html;
+    drawChart();
 
     $("btn-back").addEventListener("click", goBack);
     $("detail-status").addEventListener("change", function (e) {
@@ -731,6 +1031,48 @@
       var b = e.target.closest("[data-cat]");
       if (b) openCat(b.getAttribute("data-cat"));
     });
+
+    // 종목 탭·가격/수익률 토글 (상세 화면은 다시 그려져도 이 컨테이너는 유지됨)
+    $("detail-view").addEventListener("click", function (e) {
+      var tab = e.target.closest("[data-stock]");
+      if (tab) {
+        chartUi.key = tab.getAttribute("data-stock");
+        chartUi.mode = "price";
+        var box = $("stock-tabs");
+        if (box) Array.prototype.forEach.call(box.querySelectorAll("[data-stock]"), function (b) {
+          var on = b === tab;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+          if (on && b.scrollIntoView) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+        });
+        drawChart();
+        return;
+      }
+      var modeBtn = e.target.closest("[data-mode]");
+      if (modeBtn && !modeBtn.disabled) {
+        chartUi.mode = modeBtn.getAttribute("data-mode");
+        drawChart();
+      }
+    });
+
+    var chartResizeTimer = null;
+    window.addEventListener("resize", function () {
+      clearTimeout(chartResizeTimer);
+      chartResizeTimer = setTimeout(function () { drawChart(); }, 160);
+    });
+
+    // iOS PWA: 화면 키보드가 올라온 만큼만 하단 입력창을 띄운다.
+    function syncKeyboardGap() {
+      var vv = window.visualViewport;
+      if (!vv) return;
+      var gap = window.innerHeight - vv.height - vv.offsetTop;
+      document.documentElement.style.setProperty("--kb", gap > 80 ? Math.round(gap) + "px" : "0px");
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncKeyboardGap);
+      window.visualViewport.addEventListener("scroll", syncKeyboardGap);
+      syncKeyboardGap();
+    }
 
     $("composer").addEventListener("submit", function (e) {
       e.preventDefault();
