@@ -64,6 +64,7 @@ window.SEED = {
         { text: "미래에셋 KRX 금현물 계좌 + 월 20만 원 매수", done: false }
       ],
       todos: [
+        { text: "월급 5분할 배분안 확정 (생활비 122 · 투자 123 · 비상금 30만 원)", done: true },
         { text: "카카오뱅크 자동이체 3건 등록 (청약 · ISA · 금)", done: false },
         { text: "토스증권 SGOV 주식모으기 등록 — 월 25만 원 자동 매수 (매월 24일 환율 1,400원 미만일 때 유지)", done: false },
         { text: "미래에셋 종합_CMA 준비 — 매월 24일 환율 1,400원 이상이면 SGOV 25만 원을 CMA로 전환", done: false },
@@ -118,6 +119,7 @@ window.SEED = {
         { text: "3번째 주제 제작 (기초 경제 다음 개념)", done: false }
       ],
       todos: [
+        { text: "채널 개설 + 1·2편 공개", done: true },
         { text: "매일 19:30 다음 주제 선정 및 제작 (생활기술·도시공학 ↔ 기초 경제 교대)", done: false },
         { text: "인플레이션 v1 테스트본 삭제 여부 결정", done: false }
       ],
@@ -166,6 +168,7 @@ window.SEED = {
         { text: "카카오 이모티콘 스튜디오 제안", done: false }
       ],
       todos: [
+        { text: "캐릭터 3번 확정 · 8컷 시트 완성", done: true },
         { text: "직장인 감자 32컷 재기획 목록 피드백", done: false },
         { text: "얼빡 표정 + 손글씨 대사 샘플 3컷 방향 결정", done: false }
       ],
@@ -214,6 +217,7 @@ window.SEED = {
         { text: "12/07~11 서류 제출 (대상자 발표 시)", done: false }
       ],
       todos: [
+        { text: "LH수서2 36B 타입·청년 자격 확정", done: true },
         { text: "11/30 LH수서2 36B 온라인 청약 접수 완료", done: false },
         { text: "재은 님 명의 별도 1건 가능 여부 확인 (소득 요건)", done: false }
       ],
