@@ -8,6 +8,7 @@
 - **상세** — ① 보고(표·링크) ② 진행상황 ③ 할 일(진행률 자동 계산) ④ 체크리스트 ⑤ 메모, 하단 입력창에서 바로 추가
   - `📈 주식 · 월급 투자` — 종목별 **주가·수익률 추이 그래프**(SVG, 종목 탭·평단 점선·툴팁)
   - `📰 뉴스 · 브리핑 아카이브` — 진행상황을 **날짜별 브리핑 아카이브**로 묶어서 표시(긴급속보 강조)
+  - `🇦🇺 IELTS 스피킹` — **오답노트** 섹션(하부 카테고리 `✍️ 틀린 문장` · `📖 단어장` 탭, 복습 완료 체크)
 - **잠금** — 4자리 PIN 화면(기본값은 앱 최초 실행 시 설정), 설정에서 변경
 - **저장** — 체크·메모·카테고리 수정은 Supabase 서버에 저장(폰·PC 동기화), 오프라인 시 브라우저 localStorage 폴백
 
@@ -45,6 +46,34 @@
 ```
 
 `stockCharts`와 `news`의 `progress`는 `./scripts/board.sh`로 읽어 고친 뒤 `put`하면 됩니다(기존 체크·메모는 그대로 유지).
+
+```jsonc
+// 3) IELTS 오답노트 — ielts 카테고리의 wrongNotes 에 문장/단어를 쌓는다
+"wrongNotes": {
+  "sentences": [   // ✍️ 틀린 문장 탭
+    {
+      "id": "s3",                 // 고유 id (없던 id면 새로 추가, 같은 id면 건드리지 않음)
+      "date": "2026-11-25",       // YYYY-MM-DD
+      "wrong": "I live in apartment.",                  // 내가 말한 문장
+      "correct": "I live in an apartment.",             // 자연스러운 교정 문장
+      "tip": "단수 가산명사 앞에는 부정관사 an",           // 이유·포인트
+      "done": false               // 복습 완료 체크(화면에서 토글)
+    }
+  ],
+  "words": [       // 📖 단어장 탭
+    {
+      "id": "w2",
+      "date": "2026-11-25",
+      "word": "central heating",
+      "meaning": "중앙 난방",
+      "example": "My apartment has really strong central heating.",
+      "done": false
+    }
+  ]
+}
+```
+
+`id`는 날짜+번호(예: `s3`, `w2`)로 올리면 됩니다. 이미 있는 `id`는 다시 넣지 않으므로, 연습이 끝날 때마다 새 항목만 `sentences`·`words` 배열 끝에 더하고 `put`하면 화면에 그대로 쌓입니다.
 
 ## 파일
 

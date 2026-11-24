@@ -3,7 +3,7 @@
  * 여기 있는 내용은 화면 첫 진입 시 기본값이고, 이후 수정분은 브라우저 localStorage에 저장됩니다.
  */
 window.SEED = {
-  version: 5,
+  version: 6,
   owner: "세찬",
   pin: "0823",
 
@@ -278,20 +278,20 @@ window.SEED = {
       urgent: false,
       archive: true,
       archiveTitle: "🗂️ 주간 브리핑 아카이브",
-      summary: "매주 일요일 11:00 — 일반 AI·피지컬 AI 논문·오픈소스 브리핑을 날짜별로 쌓는 공부 기록",
+      summary: "매주 일요일 11:00 — LLM · World Model · 비전 · 복원 · 센서 · 3D · 강화학습 · 피지컬 AI 논문·오픈소스 브리핑",
       report: {
-        intro: "피지컬 AI 개발(젯슨·ROS 2·아이작 심)을 하면서, 매주 일요일 11시에 그 주의 AI·피지컬 AI 논문과 오픈소스 소식을 브리핑받아 여기에 쌓습니다.",
+        intro: "매주 일요일 오전 11시에 분야 제한 없이 AI·ML 최신 논문과 오픈소스를 공부용으로 풀어서 보내고 이곳에 쌓습니다.",
         table: {
-          columns: ["구분", "내용"],
+          columns: ["분야", "다루는 주제"],
           rows: [
-            ["브리핑 주기", "매주 일요일 11:00 — 그 주 논문·오픈소스 3~5건"],
-            ["다루는 범위", "로보틱스 · VLA(비전-언어-액션) · 시뮬레이션(아이작 심) · SLAM · ROS 2 · 엣지 경량 모델"],
-            ["읽는 방식", "논문은 문제 → 방법 → 결과 3줄 요약, 오픈소스는 설치·실행 명령까지 같이"]
+            ["🧠 LLM · World Model", "파운데이션 모델, 멀티모달, 에이전트, World Model(물리·시공간 예측)"],
+            ["🖼️ 비전 · 복원 · 센서", "Computer Vision, 화질/영상 복원, 카메라·라이다·멀티뷰 융합, BEV"],
+            ["🧊 3D 비전 · 공간 이해", "3D Gaussian Splatting, NeRF, Point Cloud, Occupancy, SLAM, 3D 재구성"],
+            ["🎮 강화학습 · 피지컬 AI", "RL(제어/RLHF/GRPO), VLA, Sim2Real, Isaac Sim, ROS 2, Jetson 엣지 추론"]
           ]
         },
         notes: [
-          "관심 주제: 윙바디 트럭 검출, 적재 슬롯 좌표, 합성데이터, MQTT 관제 — 실제 업무에 바로 쓸 수 있는 것부터.",
-          "브리핑은 매주 일요일 11:00에 오고, 아래 아카이브에 날짜별로 쌓입니다."
+          "매주 일요일 11:00 브리핑 직후 아래 주간 브리핑 아카이브에 자동 누적됩니다."
         ],
         links: []
       },
@@ -327,9 +327,20 @@ window.SEED = {
           ]
         },
         notes: [
-          "지난 연습에서 고친 것: 'I live in apartment' → 'in an apartment', 겨울 난방은 'the heating is so strong'처럼 이유를 붙이기."
+          "지난 연습에서 고친 것: 'I live in apartment' → 'in an apartment', 겨울 난방은 'the heating is so strong'처럼 이유를 붙이기.",
+          "틀린 문장과 단어는 아래 🗂️ 오답노트에 쌓입니다 — 연습이 끝나면 클피가 문장은 틀린 말 → 교정 문장으로, 단어는 뜻·예문까지 붙여 자동으로 추가합니다."
         ],
         links: []
+      },
+      /* 오답노트 — sentences(틀린 문장) · words(단어장). date는 YYYY-MM-DD, done은 복습 체크. */
+      wrongNotes: {
+        sentences: [
+          { id: "s1", date: "2026-11-05", wrong: "I live in apartment.", correct: "I live in an apartment.", tip: "단수 가산명사 apartment 앞에 부정관사 an 필수", done: false },
+          { id: "s2", date: "2026-11-05", wrong: "It is hot in winter.", correct: "It's quite warm in winter because the heating is so strong.", tip: "단답형으로 끊지 말고 because로 이유를 자연스럽게 연결", done: false }
+        ],
+        words: [
+          { id: "w1", date: "2026-11-05", word: "central heating", meaning: "중앙 난방", example: "My apartment has really strong central heating.", done: false }
+        ]
       },
       progress: [
         { date: "11/05", text: "첫 연습 — 사는 곳·겨울 난방 주제로 Part 1 질문답변, 관사·문장 연결 교정." }

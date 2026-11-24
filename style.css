@@ -453,6 +453,54 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 .memo p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 .memo time { display: block; margin-top: 4px; font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
+/* ---------- 오답노트 (틀린 문장 · 단어장) ---------- */
+.note-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.note-tab {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 10px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--text-2);
+  font-size: 12.5px; font-weight: 700;
+}
+.note-tab .nt-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-tab .nt-count {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--text-3); font-variant-numeric: tabular-nums;
+}
+.note-tab.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.note-tab.on .nt-count { color: var(--accent-ink); opacity: .8; }
+
+.note-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.note-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+}
+.note-item input[type="checkbox"] {
+  flex: 0 0 auto; width: 18px; height: 18px; margin: 1px 0 0;
+  accent-color: var(--accent); cursor: pointer;
+}
+.note-body { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+.note-body p { margin: 0; overflow-wrap: anywhere; word-break: break-word; }
+.note-line { display: flex; align-items: baseline; gap: 5px; font-size: 12.5px; line-height: 1.55; }
+.note-mark { flex: 0 0 auto; font-size: 11px; font-weight: 800; }
+.note-mark.bad { color: var(--red); }
+.note-mark.good { color: var(--green); }
+.note-wrong { color: var(--text-2); }
+.note-correct { color: var(--text); font-weight: 650; }
+.note-tip { margin-top: 2px !important; font-size: 11.5px; line-height: 1.5; color: var(--text-3); }
+.note-word { font-size: 13.5px; font-weight: 750; color: var(--text); }
+.note-meaning { font-size: 12.5px; color: var(--text-2); }
+.note-example { font-size: 12px; color: var(--text-3); line-height: 1.55; }
+.note-example::before { content: "\201C"; }
+.note-example::after { content: "\201D"; }
+.note-date {
+  flex: 0 0 auto; padding-top: 1px;
+  font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums;
+}
+.note-item.done .note-body { opacity: .55; }
+.note-item.done .note-correct, .note-item.done .note-word { text-decoration: line-through; }
+.note-hint { margin: 10px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--text-3); }
+
 /* ---------- 주가 · 수익률 그래프 ---------- */
 .stock-tabs {
   display: flex; gap: 6px; overflow-x: auto;

@@ -72,6 +72,15 @@
       c.memos = c.memos || [];
       c.report = c.report || {};
     });
+    // 오답노트 기본 예시: 아직 없는 기기에는 시드에서 한 번 넣고, 이미 쌓인 기록·복습 체크는 그대로 둔다.
+    seed.categories.forEach(function (sc) {
+      if (!sc.wrongNotes) return;
+      s.categories.forEach(function (c) {
+        if (c.id !== sc.id) return;
+        if (!c.wrongNotes || typeof c.wrongNotes !== "object") c.wrongNotes = { sentences: [], words: [] };
+        mergeWrongNotes(c.wrongNotes, sc.wrongNotes);
+      });
+    });
     // 기본 데이터가 갱신되면, 사용자가 남긴 체크·메모는 그대로 두고 새 항목만 더한다.
     if (Number(s.seedVersion || 0) < Number(window.SEED.version || 1)) {
       mergeSeed(s);
@@ -88,6 +97,21 @@
     } catch (e) {
       return initWithSeed();
     }
+  }
+
+  // 오답노트는 id 기준으로 없는 항목만 더한다(복습 체크·이후 추가분은 보존).
+  function mergeWrongNotes(dst, src) {
+    if (!dst || typeof dst !== "object" || !src || typeof src !== "object") return;
+    ["sentences", "words"].forEach(function (k) {
+      if (!Array.isArray(dst[k])) dst[k] = [];
+      var seen = {};
+      dst[k].forEach(function (it) { if (it && it.id) seen[it.id] = true; });
+      (src[k] || []).forEach(function (it) {
+        if (!it || !it.id || seen[it.id]) return;
+        dst[k].push(clone(it));
+        seen[it.id] = true;
+      });
+    });
   }
 
   function mergeList(dst, src) {
@@ -114,6 +138,10 @@
       mergeList(target.checklist, sc.checklist);
       mergeList(target.progress, sc.progress);
       mergeList(target.memos, sc.memos);
+      if (sc.wrongNotes) {
+        if (!target.wrongNotes || typeof target.wrongNotes !== "object") target.wrongNotes = { sentences: [], words: [] };
+        mergeWrongNotes(target.wrongNotes, sc.wrongNotes);
+      }
     });
     if (seed.deadlines) s.deadlines = clone(seed.deadlines);
     // 종목별 시세: 서버에 이미 있는 기록은 그대로 두고, 새 종목·새 날짜만 더한다.
@@ -546,6 +574,123 @@
     return html;
   }
 
+  /* ---------- 오답노트 (✍️ 틀린 문장 · 📖 단어장) ---------- */
+  var noteUi = { tab: "sentences" };
+
+  function wrongNotesOf(cat) {
+    var w = (cat && cat.wrongNotes) || {};
+    return {
+      sentences: Array.isArray(w.sentences) ? w.sentences : [],
+      words: Array.isArray(w.words) ? w.words : []
+    };
+  }
+  function noteDone(list) {
+    return list.filter(function (it) { return it.done; }).length;
+  }
+  function noteTabOf() {
+    if (noteUi.tab !== "words") noteUi.tab = "sentences";
+    return noteUi.tab;
+  }
+  function noteCountText(n) {
+    return "문장 " + noteDone(n.sentences) + "/" + n.sentences.length +
+      " · 단어 " + noteDone(n.words) + "/" + n.words.length;
+  }
+  function noteDate(it) {
+    var d = String((it && it.date) || "");
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? mdLabel(d) : d;
+  }
+  function noteTabHTML(kind, label, list, current) {
+    var on = kind === current;
+    return '<button type="button" class="note-tab' + (on ? " on" : "") + '" role="tab" aria-selected="' +
+      (on ? "true" : "false") + '" data-note="' + kind + '">' +
+      '<span class="nt-label">' + label + '</span>' +
+      '<span class="nt-count">' + noteDone(list) + "/" + list.length + '</span>' +
+      '</button>';
+  }
+  function notePanelHTML(n, tab) {
+    var list = tab === "words" ? n.words : n.sentences;
+    if (!list.length) {
+      return '<p class="muted-empty">' + (tab === "words"
+        ? "아직 단어장이 비어 있어요. 연습에서 외울 단어가 나오면 클피가 여기에 추가합니다."
+        : "아직 기록된 틀린 문장이 없어요. 연습이 끝나면 클피가 여기에 추가합니다.") + '</p>';
+    }
+    var html = '<ul class="note-list">';
+    list.forEach(function (it, i) {
+      var id = "wn-" + tab + "-" + i;
+      var when = noteDate(it);
+      html += '<li class="note-item' + (it.done ? " done" : "") + '">' +
+        '<input type="checkbox" id="' + id + '" data-note-done="' + tab + '" data-idx="' + i + '" aria-label="복습 완료"' + (it.done ? " checked" : "") + '>' +
+        '<div class="note-body">';
+      if (tab === "words") {
+        html += '<p class="note-word">' + esc(it.word) + '</p>' +
+          (it.meaning ? '<p class="note-meaning">' + esc(it.meaning) + '</p>' : '') +
+          (it.example ? '<p class="note-example">' + esc(it.example) + '</p>' : '');
+      } else {
+        html += '<p class="note-line"><span class="note-mark bad" aria-hidden="true">✕</span>' +
+            '<span class="note-wrong">' + esc(it.wrong) + '</span></p>' +
+          '<p class="note-line"><span class="note-mark good" aria-hidden="true">✓</span>' +
+            '<span class="note-correct">' + esc(it.correct) + '</span></p>' +
+          (it.tip ? '<p class="note-tip">' + esc(it.tip) + '</p>' : '');
+      }
+      html += '</div>' + (when ? '<span class="note-date">' + esc(when) + '</span>' : '') + '</li>';
+    });
+    html += '</ul>';
+    return html;
+  }
+
+  function sectionWrongNotes(cat) {
+    if (!(cat.id === "ielts" || cat.wrongNotes)) return "";
+    var n = wrongNotesOf(cat);
+    var tab = noteTabOf();
+    return '<section class="section"><div class="section-head"><h2>🗂️ 오답노트</h2>' +
+      '<span class="muted" id="note-count">' + noteCountText(n) + '</span></div>' +
+      '<div class="note-tabs" id="note-tabs" role="tablist" aria-label="오답노트 종류">' +
+        noteTabHTML("sentences", "✍️ 틀린 문장", n.sentences, tab) +
+        noteTabHTML("words", "📖 단어장", n.words, tab) +
+      '</div>' +
+      '<div id="note-panel">' + notePanelHTML(n, tab) + '</div>' +
+      '<p class="note-hint">연습이 끝나면 클피가 틀린 문장은 교정 문장으로, 단어는 뜻·예문까지 붙여 여기에 쏓습니다. 왼쪽 체크가 복습 완료 표시입니다.</p>' +
+      '</section>';
+  }
+
+  function bindNoteBoxes(cat) {
+    if (!cat) return;
+    var boxes = $("detail-view").querySelectorAll('input[type="checkbox"][data-note-done]');
+    Array.prototype.forEach.call(boxes, function (box) {
+      box.addEventListener("change", function () {
+        var kind = box.getAttribute("data-note-done");
+        var idx = parseInt(box.getAttribute("data-idx"), 10);
+        var list = (cat.wrongNotes || {})[kind] || [];
+        if (!list[idx]) return;
+        list[idx].done = box.checked;
+        save();
+        refreshNotes(cat);
+      });
+    });
+  }
+
+  function refreshNotes(cat) {
+    var n = wrongNotesOf(cat);
+    var tab = noteTabOf();
+    var panel = $("note-panel");
+    if (panel) panel.innerHTML = notePanelHTML(n, tab);
+    var cnt = $("note-count");
+    if (cnt) cnt.textContent = noteCountText(n);
+    var tabs = $("note-tabs");
+    if (tabs) Array.prototype.forEach.call(tabs.querySelectorAll("[data-note]"), function (b) {
+      var kind = b.getAttribute("data-note");
+      var on = kind === tab;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      var c = b.querySelector(".nt-count");
+      if (c) {
+        var list = kind === "words" ? n.words : n.sentences;
+        c.textContent = noteDone(list) + "/" + list.length;
+      }
+    });
+    bindNoteBoxes(cat);
+  }
+
   /* ---------- 주가 · 수익률 그래프 ---------- */
   var chartUi = { key: null, mode: "price" };
 
@@ -841,7 +986,8 @@
       '<div class="detail-status"><select class="status-select" id="detail-status" aria-label="상태 변경">' + opts + '</select></div>' +
       '</div>' +
       '<div class="detail-wrap">' +
-        '<div class="detail-col">' + sectionReport(cat) + sectionCharts(cat) +
+        '<div class="detail-col">' + sectionReport(cat) + sectionWrongNotes(cat) +
+          sectionCharts(cat) +
           (cat.archive ? sectionArchive(cat) : sectionProgress(cat)) + '</div>' +
         '<div class="detail-col">' + sectionTodos(cat) + sectionChecklist(cat) + sectionMemos(cat) + '</div>' +
       '</div>';
@@ -867,6 +1013,7 @@
         }
       });
     });
+    bindNoteBoxes(cat);
   }
 
   /* ---------- navigation ---------- */
@@ -1046,6 +1193,13 @@
 
     // 종목 탭·가격/수익률 토글 (상세 화면은 다시 그려져도 이 컨테이너는 유지됨)
     $("detail-view").addEventListener("click", function (e) {
+      // 오답노트 탭 전환
+      var noteTab = e.target.closest("[data-note]");
+      if (noteTab) {
+        noteUi.tab = noteTab.getAttribute("data-note");
+        refreshNotes(currentCat());
+        return;
+      }
       var tab = e.target.closest("[data-stock]");
       if (tab) {
         chartUi.key = tab.getAttribute("data-stock");
