@@ -68,7 +68,7 @@ html, body {
 body { min-height: 100vh; }
 
 button, input, select { font: inherit; color: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 a { color: var(--accent-ink); text-decoration: none; }
 a:hover { text-decoration: underline; }
 h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
@@ -412,7 +412,7 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
   flex: 0 0 auto; width: 19px; height: 19px; margin: 1px 0 0;
   accent-color: var(--accent); cursor: pointer;
 }
-.check-item label { font-size: 13px; line-height: 1.55; color: var(--text); cursor: pointer; }
+.check-item label { font-size: 13px; line-height: 1.55; color: var(--text); cursor: pointer; -webkit-user-select: none; user-select: none; }
 .check-item.done label { color: var(--text-3); text-decoration: line-through; }
 .check-item .at { display: block; font-size: 10.5px; color: var(--text-3); margin-top: 1px; }
 
