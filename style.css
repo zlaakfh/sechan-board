@@ -511,3 +511,16 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 .foot-note { margin: 22px 0 0; text-align: center; font-size: 11px; color: var(--text-3); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 좁은 화면: 상단 바 글자 줄이기 */
+@media (max-width: 480px) {
+  .hide-sm { display: none; }
+  .topbar-inner { padding: 9px 12px; gap: 6px; }
+  .brand-text strong { font-size: 13.5px; }
+  .brand-text span { font-size: 11px; }
+  .btn-sm { padding: 0 12px; }
+  .card-summary { font-size: 12px; }
+  .detail-title h1 { font-size: 17px; }
+  .field-row { flex-wrap: wrap; }
+  .field-check { flex: 0 0 100% !important; }
+}
