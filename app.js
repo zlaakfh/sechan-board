@@ -57,9 +57,9 @@
   function loadState() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return initState();
+      if (!raw) return initWithSeed();
       var s = JSON.parse(raw);
-      if (!s || !Array.isArray(s.categories)) return initState();
+      if (!s || !Array.isArray(s.categories)) return initWithSeed();
       var seed = clone(window.SEED);
       var ids = {};
       s.categories.forEach(function (c) { ids[c.id] = true; });
@@ -75,13 +75,52 @@
         c.memos = c.memos || [];
         c.report = c.report || {};
       });
+      // 기본 데이터가 갱신되면, 사용자가 남긴 체크·메모는 그대로 두고 새 항목만 더한다.
+      if (Number(s.seedVersion || 0) < Number(window.SEED.version || 1)) {
+        mergeSeed(s);
+        s.seedVersion = window.SEED.version;
+      }
       return s;
     } catch (e) {
-      return initState();
+      return initWithSeed();
     }
   }
-  function initState() {
-    var s = { pin: defaultPin(), categories: clone(window.SEED.categories), deadlines: clone(window.SEED.deadlines) };
+
+  function mergeList(dst, src) {
+    var seen = {};
+    dst.forEach(function (it) { seen[it.text] = true; });
+    (src || []).forEach(function (it) {
+      if (!seen[it.text]) { dst.push(clone(it)); seen[it.text] = true; }
+    });
+  }
+
+  function mergeSeed(s) {
+    var seed = window.SEED;
+    (seed.categories || []).forEach(function (sc) {
+      var target = null;
+      for (var i = 0; i < s.categories.length; i++) {
+        if (s.categories[i].id === sc.id) target = s.categories[i];
+      }
+      if (!target) { s.categories.push(clone(sc)); return; }
+      if (sc.report) target.report = clone(sc.report);
+      if (sc.summary != null) target.summary = sc.summary;
+      if (sc.title) target.title = sc.title;
+      if (sc.emoji) target.emoji = sc.emoji;
+      mergeList(target.todos, sc.todos);
+      mergeList(target.checklist, sc.checklist);
+      mergeList(target.progress, sc.progress);
+      mergeList(target.memos, sc.memos);
+    });
+    if (seed.deadlines) s.deadlines = clone(seed.deadlines);
+  }
+
+  function initWithSeed() {
+    var s = {
+      pin: defaultPin(),
+      seedVersion: window.SEED.version,
+      categories: clone(window.SEED.categories),
+      deadlines: clone(window.SEED.deadlines)
+    };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) {}
     return s;
   }
@@ -89,6 +128,7 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
   }
   var state = loadState();
+  state.seedVersion = window.SEED.version;
   save();
 
   /* ---------- derived ---------- */

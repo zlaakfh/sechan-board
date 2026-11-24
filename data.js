@@ -3,7 +3,7 @@
  * 여기 있는 내용은 화면 첫 진입 시 기본값이고, 이후 수정분은 브라우저 localStorage에 저장됩니다.
  */
 window.SEED = {
-  version: 1,
+  version: 2,
   owner: "세찬",
   pin: "0823",
 
