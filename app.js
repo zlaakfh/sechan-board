@@ -3,7 +3,7 @@
   "use strict";
 
   var STORE_KEY = "sechan-board-state-v1";
-  var FALLBACK_PIN = "4827";
+  var FALLBACK_PIN = "0823";
   function defaultPin() { return (window.SEED && window.SEED.pin) || FALLBACK_PIN; }
 
   var STATUS = {
