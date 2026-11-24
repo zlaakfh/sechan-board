@@ -649,7 +649,7 @@
         noteTabHTML("words", "📖 단어장", n.words, tab) +
       '</div>' +
       '<div id="note-panel">' + notePanelHTML(n, tab) + '</div>' +
-      '<p class="note-hint">연습이 끝나면 클피가 틀린 문장은 교정 문장으로, 단어는 뜻·예문까지 붙여 여기에 쏓습니다. 왼쪽 체크가 복습 완료 표시입니다.</p>' +
+      '<p class="note-hint">연습이 끝나면 클피가 틀린 문장은 교정 문장으로, 단어는 뜻·예문까지 붙여 여기에 쌓습니다. 왼쪽 체크가 복습 완료 표시입니다.</p>' +
       '</section>';
   }
 
