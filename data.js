@@ -277,6 +277,7 @@ window.SEED = {
       status: "active",
       urgent: false,
       archive: true,
+      archiveTitle: "🗂️ 주간 브리핑 아카이브",
       summary: "매주 일요일 11:00 — 일반 AI·피지컬 AI 논문·오픈소스 브리핑을 날짜별로 쌓는 공부 기록",
       report: {
         intro: "피지컬 AI 개발(젯슨·ROS 2·아이작 심)을 하면서, 매주 일요일 11시에 그 주의 AI·피지컬 AI 논문과 오픈소스 소식을 브리핑받아 여기에 쌓습니다.",

@@ -801,7 +801,8 @@
   }
   function sectionArchive(cat) {
     var total = (cat.progress || []).length;
-    var html = '<section class="section"><div class="section-head"><h2>🗂️ 날짜별 브리핑 · 긴급속보</h2><span class="muted">' + total + '건</span></div>';
+    var title = cat.archiveTitle || "🗂️ 날짜별 브리핑 · 긴급속보";
+    var html = '<section class="section"><div class="section-head"><h2>' + esc(title) + '</h2><span class="muted">' + total + '건</span></div>';
     if (!total) return html + '<p class="muted-empty">아직 쌓인 브리핑이 없습니다.</p></section>';
     html += '<div class="archive">';
     archiveGroups(cat).forEach(function (g) {
