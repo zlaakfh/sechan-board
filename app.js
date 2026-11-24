@@ -54,33 +54,36 @@
   }
 
   /* ---------- state ---------- */
+  function normalize(s) {
+    if (!s || !Array.isArray(s.categories)) return null;
+    var seed = clone(window.SEED);
+    var ids = {};
+    s.categories.forEach(function (c) { ids[c.id] = true; });
+    seed.categories.forEach(function (c) { if (!ids[c.id]) s.categories.push(c); });
+    if (!s.pin) s.pin = defaultPin();
+    // 기본 PIN을 바꿨을 때, 사용자가 직접 바꾼 적 없는 기기는 새 기본값을 따른다.
+    if (!s.pinCustom && s.pin !== defaultPin()) s.pin = defaultPin();
+    if (!Array.isArray(s.deadlines)) s.deadlines = seed.deadlines;
+    s.categories.forEach(function (c) {
+      c.todos = c.todos || [];
+      c.checklist = c.checklist || [];
+      c.progress = c.progress || [];
+      c.memos = c.memos || [];
+      c.report = c.report || {};
+    });
+    // 기본 데이터가 갱신되면, 사용자가 남긴 체크·메모는 그대로 두고 새 항목만 더한다.
+    if (Number(s.seedVersion || 0) < Number(window.SEED.version || 1)) {
+      mergeSeed(s);
+      s.seedVersion = window.SEED.version;
+    }
+    return s;
+  }
+
   function loadState() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
       if (!raw) return initWithSeed();
-      var s = JSON.parse(raw);
-      if (!s || !Array.isArray(s.categories)) return initWithSeed();
-      var seed = clone(window.SEED);
-      var ids = {};
-      s.categories.forEach(function (c) { ids[c.id] = true; });
-      seed.categories.forEach(function (c) { if (!ids[c.id]) s.categories.push(c); });
-      if (!s.pin) s.pin = defaultPin();
-      // 기본 PIN을 바꿨을 때, 사용자가 직접 바꾼 적 없는 기기는 새 기본값을 따른다.
-      if (!s.pinCustom && s.pin !== defaultPin()) s.pin = defaultPin();
-      if (!Array.isArray(s.deadlines)) s.deadlines = seed.deadlines;
-      s.categories.forEach(function (c) {
-        c.todos = c.todos || [];
-        c.checklist = c.checklist || [];
-        c.progress = c.progress || [];
-        c.memos = c.memos || [];
-        c.report = c.report || {};
-      });
-      // 기본 데이터가 갱신되면, 사용자가 남긴 체크·메모는 그대로 두고 새 항목만 더한다.
-      if (Number(s.seedVersion || 0) < Number(window.SEED.version || 1)) {
-        mergeSeed(s);
-        s.seedVersion = window.SEED.version;
-      }
-      return s;
+      return normalize(JSON.parse(raw)) || initWithSeed();
     } catch (e) {
       return initWithSeed();
     }
@@ -126,10 +129,138 @@
   }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+    markDirty();
   }
   var state = loadState();
   state.seedVersion = window.SEED.version;
   save();
+
+  /* ---------- 원격 저장소 (Supabase) ---------- */
+  var CFG = window.SUPABASE_CONFIG || null;
+  var remoteReady = false;   // 최초 원격 로드가 끝났는지
+  var remoteKnownTs = 0;     // 마지막으로 확인·저장한 원격 updated_at(ms)
+  var remoteBusy = false;    // 저장 요청 진행 중
+  var pushTimer = null;
+  var pollTimer = null;
+  var lastEditAt = 0;        // 마지막 로컬 수정 시각
+  var BADGE = {
+    idle: "동기화됨",
+    loading: "불러오는 중…",
+    saving: "동기화 중…",
+    ready: "동기화됨",
+    offline: "오프라인 저장"
+  };
+
+  function remoteOn() { return !!(CFG && CFG.url && CFG.anonKey); }
+  function apiUrl(query) {
+    return CFG.url.replace(/\/+$/, "") + "/rest/v1/" + (CFG.table || "board_state") + (query || "");
+  }
+  function apiHeaders(extra) {
+    var h = { apikey: CFG.anonKey, Authorization: "Bearer " + CFG.anonKey, "Content-Type": "application/json" };
+    if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
+    return h;
+  }
+  function setBadge(status) {
+    var el = $("sync-badge");
+    if (!el) return;
+    if (!remoteOn()) { el.hidden = true; return; }
+    el.hidden = false;
+    el.setAttribute("data-state", status);
+    el.textContent = BADGE[status] || BADGE.idle;
+  }
+
+  function fetchRemote() {
+    var q = "?id=eq." + encodeURIComponent(CFG.rowId || "main") + "&select=data,updated_at";
+    return fetch(apiUrl(q), { headers: apiHeaders(), cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  function applyRemote(payload) {
+    var s = normalize(payload && payload.data);
+    if (!s) return false;
+    state = s;
+    state.seedVersion = window.SEED.version;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+    if (ui.unlocked) route();
+    return true;
+  }
+
+  function pullRemote(initial) {
+    if (!remoteOn()) return Promise.resolve(false);
+    if (initial) setBadge("loading");
+    return fetchRemote().then(function (rows) {
+      if (!rows || !rows.length) {
+        remoteReady = true;
+        if (initial) { setBadge("ready"); pushRemote(); }
+        return false;
+      }
+      var row = rows[0];
+      var ts = Date.parse(row.updated_at) || 0;
+      var changed = ts > remoteKnownTs + 400;
+      remoteKnownTs = ts;
+      var applied = false;
+      if (changed && (initial || Date.now() - lastEditAt > 3000)) applied = applyRemote(row);
+      remoteReady = true;
+      if (initial || applied) setBadge("ready");
+      return applied;
+    }).catch(function () {
+      remoteReady = true;
+      setBadge("offline");
+      return false;
+    });
+  }
+
+  function pushRemote() {
+    if (!remoteOn() || !remoteReady) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(doPush, 400);
+  }
+
+  function doPush() {
+    if (!remoteOn()) return;
+    if (remoteBusy) { clearTimeout(pushTimer); pushTimer = setTimeout(doPush, 500); return; }
+    remoteBusy = true;
+    setBadge("saving");
+    var ts = new Date().toISOString();
+    var body = JSON.stringify({ id: (CFG.rowId || "main"), data: state, updated_at: ts });
+    fetch(apiUrl(""), {
+      method: "POST",
+      headers: apiHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: body
+    }).then(function (r) {
+      remoteBusy = false;
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      remoteKnownTs = Date.parse(ts);
+      setBadge("ready");
+    }).catch(function () {
+      remoteBusy = false;
+      setBadge("offline");
+    });
+  }
+
+  function markDirty() {
+    lastEditAt = Date.now();
+    pushRemote();
+  }
+
+  function startPolling() {
+    if (!remoteOn()) return;
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      if (document.hidden || remoteBusy) return;
+      if (Date.now() - lastEditAt < 4000) return;
+      pullRemote(false);
+    }, 12000);
+    function refresh() {
+      if (document.hidden || remoteBusy) return;
+      if (Date.now() - lastEditAt < 4000) return;
+      pullRemote(false);
+    }
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+  }
 
   /* ---------- derived ---------- */
   function progressOf(cat) {
@@ -609,4 +740,10 @@
 
   bind();
   showLock();
+  if (remoteOn()) {
+    setBadge("loading");
+    pullRemote(true).then(startPolling);
+  } else {
+    setBadge("idle");
+  }
 })();
