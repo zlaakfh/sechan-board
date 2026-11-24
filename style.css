@@ -624,8 +624,7 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 52%, var(--surface)));
 }
 
-.dash-groups { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 640px) { .dash-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dash-groups { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .dash-group {
   min-width: 0; padding: 10px 11px;
   background: var(--surface-2); border: 1px solid var(--line); border-left-width: 3px;
