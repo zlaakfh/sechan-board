@@ -183,6 +183,7 @@
     if (!s) return false;
     state = s;
     state.seedVersion = window.SEED.version;
+    state.savedAt = payload.updated_at || new Date().toISOString();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
     if (ui.unlocked) route();
     return true;
