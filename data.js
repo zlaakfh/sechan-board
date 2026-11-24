@@ -3,7 +3,7 @@
  * 여기 있는 내용은 화면 첫 진입 시 기본값이고, 이후 수정분은 브라우저 localStorage에 저장됩니다.
  */
 window.SEED = {
-  version: 4,
+  version: 5,
   owner: "세찬",
   pin: "0823",
 
@@ -407,8 +407,25 @@ window.SEED = {
         { date: "2026-11-24", price: 23760 }
       ]
     },
-    krx_gold: {
+    tiger_200weekly: {
       order: 5,
+      label: "TIGER 200타겟위클리커버드콜",
+      sub: "0104N0 · 매월 11만 원",
+      unit: "원",
+      avgPrice: null,
+      points: [
+        { date: "2026-11-13", price: 15825 },
+        { date: "2026-11-16", price: 15190 },
+        { date: "2026-11-17", price: 14810 },
+        { date: "2026-11-18", price: 15115 },
+        { date: "2026-11-19", price: 15330 },
+        { date: "2026-11-20", price: 14520 },
+        { date: "2026-11-23", price: 14030 },
+        { date: "2026-11-24", price: 14945 }
+      ]
+    },
+    krx_gold: {
+      order: 6,
       label: "KRX 금현물 1g",
       sub: "금 99.99 · 1g 단위 매수",
       unit: "원",
@@ -423,7 +440,7 @@ window.SEED = {
       ]
     },
     sgov: {
-      order: 6,
+      order: 7,
       label: "SGOV",
       sub: "미국 단기국채 · 매월 25만 원 모으기",
       unit: "달러",
@@ -434,7 +451,7 @@ window.SEED = {
       ]
     },
     usdkrw: {
-      order: 7,
+      order: 8,
       label: "원·달러 환율",
       sub: "참고 · 1,400원 넘으면 SGOV 대신 CMA",
       unit: "원",

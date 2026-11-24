@@ -131,6 +131,7 @@
         if (t.label == null) t.label = ss.label;
         if (t.sub == null) t.sub = ss.sub;
         if (t.unit == null) t.unit = ss.unit;
+        if (t.order == null && ss.order != null) t.order = ss.order;
         if (t.avgPrice == null && ss.avgPrice != null) t.avgPrice = ss.avgPrice;
       });
     }
