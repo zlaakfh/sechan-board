@@ -5,6 +5,7 @@
 window.SEED = {
   version: 1,
   owner: "세찬",
+  pin: "0823",
 
   deadlines: [
     { date: "2026-11-25", label: "월급 자동이체 (청약 25 · ISA 55 · SGOV 25 · 금 20만 원)", cat: "stock" },

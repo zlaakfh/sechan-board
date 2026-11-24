@@ -3,7 +3,8 @@
   "use strict";
 
   var STORE_KEY = "sechan-board-state-v1";
-  var DEFAULT_PIN = "4827";
+  var FALLBACK_PIN = "4827";
+  function defaultPin() { return (window.SEED && window.SEED.pin) || FALLBACK_PIN; }
 
   var STATUS = {
     active: { label: "진행중", cls: "active" },
@@ -63,7 +64,9 @@
       var ids = {};
       s.categories.forEach(function (c) { ids[c.id] = true; });
       seed.categories.forEach(function (c) { if (!ids[c.id]) s.categories.push(c); });
-      if (!s.pin) s.pin = DEFAULT_PIN;
+      if (!s.pin) s.pin = defaultPin();
+      // 기본 PIN을 바꿨을 때, 사용자가 직접 바꾼 적 없는 기기는 새 기본값을 따른다.
+      if (!s.pinCustom && s.pin !== defaultPin()) s.pin = defaultPin();
       if (!Array.isArray(s.deadlines)) s.deadlines = seed.deadlines;
       s.categories.forEach(function (c) {
         c.todos = c.todos || [];
@@ -78,7 +81,7 @@
     }
   }
   function initState() {
-    var s = { pin: DEFAULT_PIN, categories: clone(window.SEED.categories), deadlines: clone(window.SEED.deadlines) };
+    var s = { pin: defaultPin(), categories: clone(window.SEED.categories), deadlines: clone(window.SEED.deadlines) };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) {}
     return s;
   }
@@ -86,6 +89,7 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
   }
   var state = loadState();
+  save();
 
   /* ---------- derived ---------- */
   function progressOf(cat) {
@@ -446,6 +450,7 @@
     if (!/^\d{4}$/.test(next)) { err.textContent = "새 PIN은 숫자 4자리로 정해 주세요."; return; }
     if (next !== again) { err.textContent = "새 PIN 확인이 일치하지 않습니다."; return; }
     state.pin = next;
+    state.pinCustom = true;
     save();
     err.textContent = "";
     $("pin-current").value = "";
