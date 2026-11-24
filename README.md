@@ -17,6 +17,7 @@
 | `style.css` | 모바일 퍼스트 스타일(라이트/다크) |
 | `data.js` | 기본 카테고리·마감 데이터 |
 | `config.js` | Supabase 프로젝트 URL·anon key (공개 가능한 값) |
+| `scripts/board.sh` | 클피가 서버 상태를 읽고 쓰는 도우미 |
 | `app.js` | 렌더링, 라우팅(#/c/&lt;id&gt;), 저장, PIN, 서버 동기화 |
 
 ## 저장 (동기화)
@@ -40,7 +41,13 @@ curl -s -X POST "$URL/rest/v1/board_state" \
   -d '{"id":"main","data":{...},"updated_at":"2026-01-01T00:00:00Z"}'
 ```
 
-`$URL`·`$KEY` 값은 저장소에 올리지 않는 로컬 파일 `sechan-board/.supabase.json`에 있습니다.
+`$URL`·`$KEY` 값은 저장소에 올리지 않는 로컬 파일 `sechan-board/.supabase.json`에 있습니다. 위 curl을 매번 쓰지 않으려면 도우미 스크립트를 쓰세요.
+
+```bash
+./scripts/board.sh get            # 현재 상태(data + updated_at)
+./scripts/board.sh data           # data만 보기 좋게
+./scripts/board.sh put FILE.json  # FILE.json(data 객체)을 서버에 저장
+```
 
 ## 메모
 
