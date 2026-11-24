@@ -128,6 +128,7 @@
     return s;
   }
   function save() {
+    state.savedAt = new Date().toISOString();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
     markDirty();
   }
@@ -198,11 +199,14 @@
       }
       var row = rows[0];
       var ts = Date.parse(row.updated_at) || 0;
+      var localTs = Date.parse(state.savedAt || 0) || 0;
+      remoteReady = true;
+      // 첫 로드에 이 기기의 수정본이 서버보다 더 최근이면 서버로 올린다.
+      if (initial && localTs > ts + 2000) { pushRemote(); setBadge("saving"); return false; }
       var changed = ts > remoteKnownTs + 400;
       remoteKnownTs = ts;
       var applied = false;
       if (changed && (initial || Date.now() - lastEditAt > 3000)) applied = applyRemote(row);
-      remoteReady = true;
       if (initial || applied) setBadge("ready");
       return applied;
     }).catch(function () {
