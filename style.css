@@ -353,6 +353,8 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 }
 
 .detail-wrap { display: grid; gap: 12px; }
+.detail-wrap > * { min-width: 0; }
+.detail-col { min-width: 0; }
 @media (min-width: 900px) {
   .detail-wrap { grid-template-columns: 1.15fr .85fr; align-items: start; }
   .detail-col { display: grid; gap: 12px; align-content: start; }
@@ -386,6 +388,12 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 .report-table td:first-child { color: var(--text); font-weight: 650; }
 .report-table td:last-child { padding-right: 0; }
 .report-table tr:last-child td { border-bottom: none; }
+
+/* 좌우로 넓은 표는 카드 안에서만 스크롤되게 */
+.table-scroll { max-width: 100%; }
+@media (min-width: 640px) {
+  .report-table th:first-child, .report-table td:first-child { white-space: nowrap; }
+}
 
 @media (max-width: 639px) {
   .report-table thead { display: none; }
