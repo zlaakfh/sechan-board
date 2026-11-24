@@ -36,7 +36,8 @@
       var el = doc.querySelector(sel);
       return el ? el.getBoundingClientRect().top + f.contentWindow.scrollY : null;
     };
-    return { a: top(".dash") - 8, b: (top(".dash") - 8) + 844, c: (top(".dash") - 8) + 1688 };
+    var a = top(".dash") - 30;
+    return { a: a, b: a + 844, c: a + 1688 };
   }
   document.querySelector(".bar").addEventListener("click", function (e) {
     var b = e.target.closest("[data-go]");
