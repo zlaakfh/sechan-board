@@ -656,7 +656,10 @@
       mn = -m; mx = m;
     } else {
       var span = mx - mn;
-      if (!isFinite(span) || span < mx * 0.004) { mn -= (mx * 0.03 || 1); mx += (mx * 0.03 || 1); }
+      if (!isFinite(span) || span < mx * 0.004) {
+        var d0 = Math.max(span, mx * 0.004) || 1;
+        mn -= d0; mx += d0;
+      }
       else { mn -= span * 0.14; mx += span * 0.14; }
     }
     function X(i) { return pts.length === 1 ? padL + iw / 2 : padL + (i / (pts.length - 1)) * iw; }
