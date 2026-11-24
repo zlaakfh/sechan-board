@@ -3,7 +3,7 @@
  * 여기 있는 내용은 화면 첫 진입 시 기본값이고, 이후 수정분은 브라우저 localStorage에 저장됩니다.
  */
 window.SEED = {
-  version: 3,
+  version: 4,
   owner: "세찬",
   pin: "0823",
 
@@ -268,6 +268,82 @@ window.SEED = {
       memos: [
         { text: "같은 내용을 두 번 적지 않기 — 긴급속보는 속보성만, 16:00 브리핑에 이미 담긴 지수·종목 수치는 한 줄로 요약.", at: "2026-11-25T00:10:00+09:00" }
       ]
+    },
+
+    {
+      id: "ai-study",
+      emoji: "🤖",
+      title: "AI · 피지컬 AI 공부",
+      status: "active",
+      urgent: false,
+      archive: true,
+      summary: "매주 일요일 11:00 — 일반 AI·피지컬 AI 논문·오픈소스 브리핑을 날짜별로 쌓는 공부 기록",
+      report: {
+        intro: "피지컬 AI 개발(젯슨·ROS 2·아이작 심)을 하면서, 매주 일요일 11시에 그 주의 AI·피지컬 AI 논문과 오픈소스 소식을 브리핑받아 여기에 쌓습니다.",
+        table: {
+          columns: ["구분", "내용"],
+          rows: [
+            ["브리핑 주기", "매주 일요일 11:00 — 그 주 논문·오픈소스 3~5건"],
+            ["다루는 범위", "로보틱스 · VLA(비전-언어-액션) · 시뮬레이션(아이작 심) · SLAM · ROS 2 · 엣지 경량 모델"],
+            ["읽는 방식", "논문은 문제 → 방법 → 결과 3줄 요약, 오픈소스는 설치·실행 명령까지 같이"]
+          ]
+        },
+        notes: [
+          "관심 주제: 윙바디 트럭 검출, 적재 슬롯 좌표, 합성데이터, MQTT 관제 — 실제 업무에 바로 쓸 수 있는 것부터.",
+          "브리핑은 매주 일요일 11:00에 오고, 아래 아카이브에 날짜별로 쌓입니다."
+        ],
+        links: []
+      },
+      progress: [],
+      todos: [
+        { text: "매주 일요일 11:00 브리핑 받으면 한 줄 감상 남기기", done: false },
+        { text: "관심 오픈소스는 직접 돌려보기 (VLA · SLAM · 아이작 심)", done: false }
+      ],
+      checklist: [
+        { text: "주간 브리핑 아카이브 자리 만들기", done: true },
+        { text: "첫 브리핑 수신 (다음 일요일 11:00)", done: false }
+      ],
+      memos: [
+        { text: "논문은 '내 업무에 바로 쓸 수 있나' 기준으로만 읽기 — 아니면 과감히 스킵.", at: "2026-11-25T00:20:00+09:00" }
+      ]
+    },
+
+    {
+      id: "ielts",
+      emoji: "🇦🇺",
+      title: "IELTS 스피킹",
+      status: "waiting",
+      urgent: false,
+      summary: "호주 이민 대비 스피킹 연습 — 톡방에서 🇦🇺 보내면 바로 시작",
+      report: {
+        intro: "재은 님과 호주 이민을 준비하며 시작한 IELTS 스피킹 연습입니다. 톡방에 🇦🇺 를 보내면 클피가 그 자리에서 연습을 시작합니다.",
+        table: {
+          columns: ["항목", "내용"],
+          rows: [
+            ["시작", "2026-11-05 밤 음성 통화 — IELTS Speaking Part 1 질문답변"],
+            ["진행 방식", "짧은 질문 → 영어로 답변 → 바로 교정(관사·문장 연결·이유 붙이기)"],
+            ["목표", "호주 이민 요건 점수 (재은 님과 함께 준비)"]
+          ]
+        },
+        notes: [
+          "지난 연습에서 고친 것: 'I live in apartment' → 'in an apartment', 겨울 난방은 'the heating is so strong'처럼 이유를 붙이기."
+        ],
+        links: []
+      },
+      progress: [
+        { date: "11/05", text: "첫 연습 — 사는 곳·겨울 난방 주제로 Part 1 질문답변, 관사·문장 연결 교정." }
+      ],
+      todos: [
+        { text: "톡방에서 🇦🇺 보내 연습 시작하기", done: false },
+        { text: "Part 1 자주 나오는 주제(집·취미·일) 30초 답변 3개 만들기", done: false }
+      ],
+      checklist: [
+        { text: "첫 스피킹 연습 (11/05)", done: true },
+        { text: "이번 주 안에 2회 더 연습", done: false }
+      ],
+      memos: [
+        { text: "답이 막히면 침묵하지 말고 'Well, ...'로 시작해 결론부터 — IELTS 스피킹은 멈추는 게 가장 큰 감점.", at: "2026-11-25T00:20:00+09:00" }
+      ]
     }
   ],
 
@@ -343,6 +419,28 @@ window.SEED = {
         { date: "2026-11-20", price: 153090 },
         { date: "2026-11-23", price: 157000 },
         { date: "2026-11-24", price: 156760 }
+      ]
+    },
+    sgov: {
+      order: 6,
+      label: "SGOV",
+      sub: "미국 단기국채 · 매월 25만 원 모으기",
+      unit: "달러",
+      avgPrice: null,
+      points: [
+        { date: "2026-11-23", price: 100.64 },
+        { date: "2026-11-24", price: 100.66 }
+      ]
+    },
+    usdkrw: {
+      order: 7,
+      label: "원·달러 환율",
+      sub: "참고 · 1,400원 넘으면 SGOV 대신 CMA",
+      unit: "원",
+      avgPrice: null,
+      points: [
+        { date: "2026-11-21", price: 1345.9 },
+        { date: "2026-11-24", price: 1342.4 }
       ]
     }
   }

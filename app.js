@@ -613,6 +613,7 @@
     var c = chartState();
     if (!c) { host.innerHTML = ""; return; }
     var s = c.s;
+    var u = s.unit || "원";
     var pts = chartPoints(s);
     var avg = (typeof s.avgPrice === "number" && s.avgPrice > 0) ? s.avgPrice : null;
     var last = pts.length ? pts[pts.length - 1] : null;
@@ -624,7 +625,7 @@
     var head = '<div class="chart-head"><div class="ss-main">' +
       '<span class="ss-label">' + (mode === "return" ? "평단 대비 수익률" : "현재가") + '</span>' +
       (last
-        ? '<strong>' + (mode === "return" ? signed(ret) : num(last.price) + "원") + '</strong>' +
+        ? '<strong>' + (mode === "return" ? signed(ret) : num(last.price) + u) + '</strong>' +
           '<span class="ss-date">' + mdLabel(last.date) + ' 기록 · ' + esc(s.sub || "") + '</span>'
         : '<strong>—</strong>') +
       '</div><div class="chart-toggle" role="tablist" aria-label="그래프 기준">' +
@@ -633,7 +634,7 @@
       '</div></div>';
 
     var summary = '<div class="ss-grid">' +
-      '<div><span>평단</span><strong>' + (avg ? num(avg) + "원" : "미기록") + '</strong></div>' +
+      '<div><span>평단</span><strong>' + (avg ? num(avg) + u : "미기록") + '</strong></div>' +
       (ret != null ? '<div><span>평단 대비</span><strong class="' + (ret >= 0 ? "up" : "down") + '">' + signed(ret) + '</strong></div>' : '') +
       (chg != null ? '<div><span>직전 기록(' + mdLabel(prev.date) + ') 대비</span><strong class="' + (chg >= 0 ? "up" : "down") + '">' + signed(chg) + '</strong></div>' : '') +
       '<div><span>기록</span><strong>' + pts.length + '일</strong></div>' +
@@ -663,19 +664,25 @@
     function valAt(p) { return mode === "return" ? p.price / avg - 1 : p.price; }
 
     var grid = "", axis = "";
+    var rng = mx - mn;
+    function axisFmt(v) {
+      if (rng < 1) return v.toFixed(2);
+      if (rng < 20) return v.toFixed(1);
+      return num(Math.round(v));
+    }
     for (var t = 0; t <= 4; t++) {
       var gv = mx - (mx - mn) * (t / 4);
       var gy = Y(gv);
       grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '"/>';
       axis += '<text x="' + (padL - 7) + '" y="' + (gy + 3.2).toFixed(1) + '" text-anchor="end">' +
-        (mode === "return" ? signed(gv, 1) : num(Math.round(gv))) + '</text>';
+        (mode === "return" ? signed(gv, 1) : axisFmt(gv)) + '</text>';
     }
 
     var avgLine = "";
     if (avg) {
       var ay = Y(mode === "return" ? 0 : avg);
       avgLine = '<line class="chart-avg" x1="' + padL + '" y1="' + ay.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + ay.toFixed(1) + '"/>' +
-        '<text class="chart-avg-label" x="' + (W - padR) + '" y="' + (ay - 5).toFixed(1) + '" text-anchor="end">평단 ' + num(avg) + '원</text>';
+        '<text class="chart-avg-label" x="' + (W - padR) + '" y="' + (ay - 5).toFixed(1) + '" text-anchor="end">평단 ' + num(avg) + u + '</text>';
     }
 
     var path = "", dots = "";
@@ -731,7 +738,7 @@
       if (guide) { guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.classList.add("on"); }
       if (focus) { focus.setAttribute("cx", px); focus.setAttribute("cy", py); focus.setAttribute("opacity", "1"); }
       if (!tip) return;
-      tip.innerHTML = '<b>' + mdLabel(p.date) + '</b> ' + num(p.price) + '원' +
+      tip.innerHTML = '<b>' + mdLabel(p.date) + '</b> ' + num(p.price) + u +
         (avg ? ' · ' + signed(p.price / avg - 1) : '');
       tip.style.left = Math.max(18, Math.min(82, (px / W) * 100)) + '%';
       tip.style.top = Math.max(22, py) + 'px';
