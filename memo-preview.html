@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>메모 미리보기 · 세찬 × 클피</title>
+<meta name="description" content="메모 대화형 UI 미리보기(테스트 데이터, 저장 안 됨)">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f5f6fa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="세찬 보드">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=22">
+</head>
+<body>
+
+<!-- 잠금 화면 -->
+<div id="lock-screen" class="lock" hidden>
+  <div class="lock-inner">
+    <div class="lock-mark">🗂️</div>
+    <h1 class="lock-title">세찬 × 클피<br>워크스페이스</h1>
+    <p class="lock-sub">비밀번호 4자리를 입력해 주세요</p>
+    <div class="dots" id="pin-dots" aria-label="PIN 입력">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="keypad" id="keypad">
+      <button type="button" data-key="1">1</button>
+      <button type="button" data-key="2">2</button>
+      <button type="button" data-key="3">3</button>
+      <button type="button" data-key="4">4</button>
+      <button type="button" data-key="5">5</button>
+      <button type="button" data-key="6">6</button>
+      <button type="button" data-key="7">7</button>
+      <button type="button" data-key="8">8</button>
+      <button type="button" data-key="9">9</button>
+      <button type="button" class="key-ghost" data-key="clear" aria-label="전체 지우기">C</button>
+      <button type="button" data-key="0">0</button>
+      <button type="button" class="key-ghost" data-key="back" aria-label="한 자리 지우기">⌫</button>
+    </div>
+    <p class="lock-error" id="lock-error" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<!-- 앱 -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">🗂️</span>
+        <div class="brand-text">
+          <strong>세찬 × 클피<span class="hide-sm"> 워크스페이스</span></strong>
+          <span id="today-label"></span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="sync-badge" id="sync-badge" data-state="idle" aria-live="polite" hidden></span>
+        <button type="button" class="btn btn-icon" id="btn-lock" title="잠그기" aria-label="잠그기">🔒</button>
+        <button type="button" class="btn btn-icon" id="btn-pin" title="PIN 변경" aria-label="PIN 변경">⚙️</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-cat">+<span class="hide-sm"> 새 카테고리</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" id="home-view">
+    <section class="panel deadlines-panel" id="deadlines"></section>
+
+    <div class="filters" id="filters" role="tablist" aria-label="프로젝트 필터"></div>
+
+    <div class="cards" id="cards"></div>
+
+    <p class="foot-note">
+      체크·메모는 서버(Supabase)에 저장되어 폰·PC가 함께 동기화됩니다 · 오프라인일 때는 이 브라우저에 임시 저장 · PIN은 화면 잠금용입니다
+    </p>
+  </main>
+
+  <main class="wrap" id="detail-view" hidden></main>
+
+  <form class="composer" id="composer" hidden>
+    <div class="composer-inner">
+      <select id="composer-type" aria-label="추가할 항목 종류">
+        <option value="memo">💬 메모</option>
+        <option value="todo">📝 할 일</option>
+        <option value="progress">🚩 진행상황</option>
+        <option value="check">✅ 체크리스트</option>
+      </select>
+      <input type="text" id="composer-input" placeholder="내용을 입력하고 추가를 눌러 주세요" autocomplete="off" enterkeyhint="done">
+      <button type="submit" class="btn btn-primary">추가</button>
+    </div>
+  </form>
+</div>
+
+<!-- PIN 변경 모달 -->
+<div class="modal" id="pin-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pin-modal-title">
+    <div class="modal-head">
+      <h2 id="pin-modal-title">⚙️ PIN 변경</h2>
+      <button type="button" class="btn btn-icon" data-close="pin-modal" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>현재 PIN</span>
+        <input type="password" id="pin-current" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="••••">
+      </label>
+      <label class="field">
+        <span>새 PIN (4자리)</span>
+        <input type="password" id="pin-new" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="••••">
+      </label>
+      <label class="field">
+        <span>새 PIN 확인</span>
+        <input type="password" id="pin-confirm" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="••••">
+      </label>
+      <p class="field-error" id="pin-error" role="status" aria-live="polite"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close="pin-modal">취소</button>
+      <button type="button" class="btn btn-primary" id="pin-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 새 카테고리 모달 -->
+<div class="modal" id="cat-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
+    <div class="modal-head">
+      <h2 id="cat-modal-title">+ 새 카테고리</h2>
+      <button type="button" class="btn btn-icon" data-close="cat-modal" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <label class="field field-emoji">
+          <span>이모지</span>
+          <input type="text" id="cat-emoji" maxlength="4" value="📁">
+        </label>
+        <label class="field">
+          <span>이름</span>
+          <input type="text" id="cat-name" maxlength="40" placeholder="예: 🚗 자동차 관리">
+        </label>
+      </div>
+      <label class="field">
+        <span>한 줄 설명</span>
+        <input type="text" id="cat-desc" maxlength="80" placeholder="이 카테고리에서 관리할 것">
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span>상태</span>
+          <select id="cat-status">
+            <option value="active">진행중</option>
+            <option value="waiting">대기·보관</option>
+            <option value="done">완료</option>
+          </select>
+        </label>
+        <label class="field field-check">
+          <span>긴급 표시</span>
+          <input type="checkbox" id="cat-urgent">
+        </label>
+      </div>
+      <p class="field-error" id="cat-error" role="status" aria-live="polite"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close="cat-modal">취소</button>
+      <button type="button" class="btn btn-primary" id="cat-save">만들기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/* 미리보기 전용: 실제 보드 저장소(Supabase·localStorage)와 완전히 분리한다. */
+(function () {
+  window.SUPABASE_CONFIG = {};
+  var mem = {};
+  try {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+        setItem: function (k, v) { mem[k] = String(v); },
+        removeItem: function (k) { delete mem[k]; },
+        clear: function () { mem = {}; }
+      }
+    });
+  } catch (e) {}
+})();
+</script>
+<script src="data.js?v=22"></script>
+<script>
+/* 테스트용 데모 메모 — 실제 보드에는 저장되지 않습니다. */
+(function () {
+  var want = parseInt((location.search.match(/[?&]n=(\d+)/) || [])[1], 10) || 9;
+  function at(dayOffset, h, m) {
+    var d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  }
+  function mk(i, who, text, ts) { return { id: "demo-" + i, who: who, text: text, at: ts }; }
+  var base = [
+    mk(1, "sechan", "금 사는것까지 체크 해주기. 이체만 체크하지 말고.", at(-1, 13, 24)),
+    mk(2, "keulpi", "네, 매월 25·26일에는 이체뿐 아니라 금현물 1g 매수 체결까지 확인해서 알려드릴게요.", at(-1, 13, 31)),
+    mk(3, "sechan", "매달 25, 26일 마다 체크리스트 최신화하여 내가 했는지 안했는지 알려주기.", at(-1, 13, 36)),
+    mk(4, "keulpi", "체크리스트에 넣어 두었습니다. 놓친 항목이 있으면 다음 날 아침 브리핑에 한 줄로 표시해 드려요.", at(-1, 13, 41)),
+    mk(5, "sechan", "원화예수금 300만원은 어떻게 하는게 좋을까?", at(0, 12, 54)),
+    mk(6, "keulpi", "당장 쓸 돈이 아니면 CMA에 두고, 환율이 1,400원을 넘는 날에는 SGOV 대신 그쪽으로 보내는 쪽을 추천드려요.", at(0, 13, 2)),
+    mk(7, "sechan", "보드는 https://zlaakfh.github.io/sechan-board/ 여기야", at(0, 13, 21)),
+    mk(8, "keulpi", "링크 확인했습니다. 폰에서도 PIN 넣으면 같은 내용이 보여요.", at(0, 13, 29)),
+    mk(9, "sechan", "오케이, 이제 메모도 대화처럼 보이네", at(0, 13, 39))
+  ];
+  var memos = base;
+  if (want > base.length) {
+    memos = [];
+    for (var i = 0; i < want; i++) {
+      memos.push(mk(100 + i, i % 2 ? "keulpi" : "sechan",
+        "테스트 메모 " + (i + 1) + " — 대화가 길어지면 위쪽에 '이전 메모 더 보기'가 붙습니다.",
+        at(-3 + Math.floor(i / 8), 9 + (i % 8), (i * 7) % 60)));
+    }
+  }
+  (window.SEED.categories || []).forEach(function (c) { if (c.id === "stock") c.memos = memos; });
+})();
+</script>
+<script src="app.js?v=22"></script>
+</body>
+</html>

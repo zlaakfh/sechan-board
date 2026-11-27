@@ -22,6 +22,16 @@
   --radius: 18px;
   --radius-sm: 12px;
   --tap: 44px;
+  /* 메모 말풍선: 세찬님(보라·오른쪽) / 클피(시안·왼쪽) */
+  --memo-me-bg: rgba(167, 139, 250, .18);
+  --memo-me-line: rgba(139, 92, 246, .42);
+  --memo-me-ink: #6a4fd6;
+  --memo-them-bg: rgba(34, 211, 238, .10);
+  --memo-them-line: rgba(6, 148, 167, .36);
+  --memo-them-ink: #0b7f96;
+  --memo-av-bg: #22d3ee;
+  --memo-av-ink: #06333c;
+  --memo-sep-bg: rgba(15, 23, 42, .05);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +55,15 @@
     --amber-soft: #302819;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
     --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 28px rgba(0, 0, 0, .3);
+    --memo-me-bg: rgba(167, 139, 250, .17);
+    --memo-me-line: rgba(167, 139, 250, .5);
+    --memo-me-ink: #c4b5fd;
+    --memo-them-bg: rgba(34, 211, 238, .09);
+    --memo-them-line: rgba(34, 211, 238, .32);
+    --memo-them-ink: #67e8f9;
+    --memo-av-bg: #22d3ee;
+    --memo-av-ink: #08343d;
+    --memo-sep-bg: rgba(255, 255, 255, .06);
   }
 }
 
@@ -444,14 +463,62 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 .todo-head .bar { flex: 1 1 auto; }
 .todo-head .pct { flex: 0 0 auto; font-size: 12px; font-weight: 800; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
 
-/* 메모 */
-.memo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.memo {
-  background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: var(--radius-sm); padding: 10px 12px;
+/* 메모 — 대화형 말풍선 (재은 님 보드와 같은 채팅형) */
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.note {
+  display: flex; align-items: flex-end; gap: 8px; max-width: 92%;
+  scroll-margin-bottom: calc(var(--kb, 0px) + 104px + env(safe-area-inset-bottom, 0px));
 }
-.memo p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
-.memo time { display: block; margin-top: 4px; font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.note.me { align-self: flex-end; flex-direction: row-reverse; }
+.note-col { display: flex; flex-direction: column; min-width: 0; }
+.note.me .note-col { align-items: flex-end; }
+.note .bubble {
+  padding: 9px 13px; border-radius: 16px;
+  border: 1px solid var(--memo-them-line); background: var(--memo-them-bg);
+  font-size: 13px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+}
+.note.them .bubble { border-bottom-left-radius: 5px; }
+.note.me .bubble { border-bottom-right-radius: 5px; border-color: var(--memo-me-line); background: var(--memo-me-bg); }
+.memo-link {
+  color: var(--memo-them-ink); font-weight: 650;
+  text-decoration: underline; text-underline-offset: 2px; word-break: break-all;
+}
+.note-meta {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 4px; padding: 0 4px;
+  font-size: 11px; color: var(--text-3);
+}
+.note-meta .who { font-weight: 700; color: var(--memo-them-ink); }
+.note.me .note-meta .who { color: var(--memo-me-ink); }
+.note-meta time { font-variant-numeric: tabular-nums; }
+.note-del {
+  border: 0; background: none; padding: 0 2px;
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+}
+@media (hover: hover) {
+  .note-del { opacity: 0; transition: opacity .15s ease; }
+  .note:hover .note-del, .note-del:focus-visible { opacity: 1; }
+  .note-del:hover { color: var(--red); }
+}
+.memo-av {
+  flex: none; display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--memo-av-bg); color: var(--memo-av-ink);
+  font-size: 12px; font-weight: 800; line-height: 1;
+}
+.note-sep {
+  align-self: center; margin: 2px 0 0; padding: 2px 10px;
+  border-radius: 999px; background: var(--memo-sep-bg);
+  color: var(--text-3); font-size: 11px; font-weight: 650;
+}
+.notes-more { align-self: center; list-style: none; }
+.more-notes {
+  min-height: 40px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+}
+.more-notes:hover { background: var(--bg-soft); }
 
 /* ---------- 오답노트 (틀린 문장 · 단어장) ---------- */
 .note-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }

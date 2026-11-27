@@ -121,11 +121,22 @@
     });
   }
 
+  // 같은 항목인지 판별하는 키: id가 있으면 id, 없으면 text(+at).
+  // 메모는 같은 문장을 다른 날 또 남길 수 있어 text만으로 묶으면 사라지므로 at을 함께 본다.
+  function itemKey(it) {
+    if (!it) return "";
+    if (it.id) return "i:" + it.id;
+    return "t:" + String(it.text == null ? "" : it.text) + "|" + String(it.at || "");
+  }
+
   function mergeList(dst, src) {
     var seen = {};
-    dst.forEach(function (it) { seen[it.text] = true; });
+    dst.forEach(function (it) { seen[itemKey(it)] = true; });
     (src || []).forEach(function (it) {
-      if (!seen[it.text]) { dst.push(clone(it)); seen[it.text] = true; }
+      var k = itemKey(it);
+      if (!k || seen[k]) return;
+      dst.push(clone(it));
+      seen[k] = true;
     });
   }
 
@@ -564,22 +575,128 @@
       '</section>';
   }
 
+  /* ---------- 메모 (대화형 말풍선) ----------
+     재은 님 보드(제나 × 똘마니)와 같은 채팅형 메모 — 세찬님은 오른쪽 보라,
+     클피는 왼쪽 시안 말풍선. who가 없는 예전 메모는 세찬님 글로 본다. */
+  var MEMO_LIMIT = 20;
+  var memoUi = { showAll: false, catId: null };
+
+  function memoWho(m) {
+    var w = String((m && m.who) || "").trim();
+    return (w === "keulpi" || w === "클피") ? "keulpi" : "sechan";
+  }
+  function memoTime(m) {
+    var t = m && m.at ? Date.parse(m.at) : NaN;
+    return isNaN(t) ? null : t;
+  }
+  function clockLabel(t) {
+    var d = new Date(t);
+    var h = d.getHours();
+    var ap = h < 12 ? "오전" : "오후";
+    h = h % 12 || 12;
+    return ap + " " + h + ":" + pad(d.getMinutes());
+  }
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+  function memoDayKey(d) { return "" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); }
+  function memoDayLabel(d) {
+    var now = new Date();
+    var y = new Date(now.getTime());
+    y.setDate(now.getDate() - 1);
+    var md = (d.getMonth() + 1) + "월 " + d.getDate() + "일";
+    var wd = "(" + WEEKDAY[d.getDay()] + ")";
+    if (sameDay(d, now)) return "오늘 · " + md + " " + wd;
+    if (sameDay(d, y)) return "어제 · " + md + " " + wd;
+    return d.getFullYear() === now.getFullYear() ? md + " " + wd : d.getFullYear() + "년 " + md;
+  }
+
+  // 말풍선 안의 http(s)·www 주소를 새 탭 링크로 바꾼다.
+  var MEMO_URL_RE = /(https?:\/\/[^\s<>"'`]+|www\.[^\s<>"'`]+)/g;
+  function memoText(text) {
+    var s = String(text == null ? "" : text);
+    var out = "", last = 0, m;
+    MEMO_URL_RE.lastIndex = 0;
+    while ((m = MEMO_URL_RE.exec(s))) {
+      var raw = m[0], tail = "";
+      var tm = raw.match(/[)\]}.,;:!?'"]+$/);
+      if (tm) { tail = tm[0]; raw = raw.slice(0, -tail.length); }
+      out += esc(s.slice(last, m.index));
+      if (raw.length > 6) {
+        var href = /^https?:\/\//i.test(raw) ? raw : "https://" + raw;
+        out += '<a class="memo-link" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(raw) + '</a>';
+      } else {
+        out += esc(raw);
+      }
+      out += esc(tail);
+      last = m.index + m[0].length;
+    }
+    return out + esc(s.slice(last));
+  }
+
+  function memoListHTML(cat) {
+    var items = (cat.memos || []).map(function (m, i) { return { m: m, i: i, t: memoTime(m) }; });
+    if (!items.length) {
+      return '<p class="muted-empty">아직 메모가 없습니다. 아래 입력창에서 💬 메모를 골라 첫 메모를 남겨 보세요.</p>';
+    }
+    // 채팅방처럼 시간 오름차순 — 시간이 없는 메모는 맨 위에 둔다.
+    items.sort(function (a, b) {
+      if (a.t == null && b.t == null) return a.i - b.i;
+      if (a.t == null) return -1;
+      if (b.t == null) return 1;
+      if (a.t !== b.t) return a.t - b.t;
+      return a.i - b.i;
+    });
+    var hidden = memoUi.showAll ? 0 : Math.max(0, items.length - MEMO_LIMIT);
+    var shown = items.slice(hidden);
+    var html = '<ol class="notes" aria-label="메모 대화">';
+    if (hidden) {
+      html += '<li class="notes-more"><button type="button" class="more-notes" data-memo-more>이전 메모 ' + hidden + '개 더 보기</button></li>';
+    }
+    var lastDay = "";
+    shown.forEach(function (it) {
+      var m = it.m;
+      var me = memoWho(m) === "sechan";
+      if (it.t != null) {
+        var d = new Date(it.t);
+        var k = memoDayKey(d);
+        if (k !== lastDay) {
+          html += '<li class="note-sep">' + esc(memoDayLabel(d)) + '</li>';
+          lastDay = k;
+        }
+      }
+      html += '<li class="note ' + (me ? "me" : "them") + '" data-memo-idx="' + it.i + '">' +
+        (me ? "" : '<span class="memo-av" aria-hidden="true">클</span>') +
+        '<div class="note-col"><p class="note-meta">' +
+          '<span class="who">' + (me ? "세찬" : "클피") + '</span>' +
+          (it.t != null ? '<time datetime="' + esc(m.at) + '">' + clockLabel(it.t) + '</time>' : "") +
+          (me ? '<button type="button" class="note-del" data-memo-del="' + it.i + '" aria-label="메모 삭제">삭제</button>' : "") +
+        '</p><div class="bubble">' + memoText(m.text) + '</div></div></li>';
+    });
+    return html + '</ol>';
+  }
+
   function sectionMemos(cat) {
     var items = cat.memos || [];
-    var html = '<section class="section"><div class="section-head"><h2>💬 메모</h2><span class="muted">' + items.length + '개</span></div>';
-    if (!items.length) {
-      html += '<p class="muted-empty">아직 메모가 없습니다.</p>';
-    } else {
-      html += '<ul class="memo-list">';
-      items.forEach(function (m) {
-        var when = "";
-        try { when = m.at ? fullStamp(new Date(m.at)) : ""; } catch (e) {}
-        html += '<li class="memo"><p>' + esc(m.text) + '</p>' + (when ? '<time>' + esc(when) + '</time>' : '') + '</li>';
-      });
-      html += '</ul>';
-    }
-    html += '</section>';
-    return html;
+    return '<section class="section" id="memo-section">' +
+      '<div class="section-head"><h2>💬 메모</h2><span class="muted">' + items.length + '개</span></div>' +
+      '<div id="memo-body">' + memoListHTML(cat) + '</div>' +
+      '</section>';
+  }
+
+  // 메모만 다시 그린다(체크·다른 섹션과 화면 위치를 건드리지 않게).
+  function refreshMemos(cat, scrollToNew) {
+    if (!cat) return;
+    var body = $("memo-body");
+    var sec = $("memo-section");
+    if (!body || !sec) return;
+    body.innerHTML = memoListHTML(cat);
+    var cnt = sec.querySelector(".section-head .muted");
+    if (cnt) cnt.textContent = (cat.memos || []).length + "개";
+    if (!scrollToNew) return;
+    var notes = body.querySelectorAll(".note");
+    var last = notes[notes.length - 1];
+    if (last && last.scrollIntoView) last.scrollIntoView({ block: "nearest" });
   }
 
   /* ---------- 오답노트 (✍️ 틀린 문장 · 📖 단어장) ---------- */
@@ -1192,6 +1309,7 @@
   function renderDetail() {
     var cat = currentCat();
     if (!cat) { location.hash = "#/"; return; }
+    if (memoUi.catId !== cat.id) { memoUi.showAll = false; memoUi.catId = cat.id; }
     setView("detail");
     var opts = "";
     Object.keys(STATUS).forEach(function (k) {
@@ -1273,7 +1391,14 @@
     var text = (raw || "").trim();
     if (!cat || !text) return;
     if (kind === "memo") {
-      cat.memos.unshift({ text: text, at: new Date().toISOString() });
+      var now = new Date();
+      memoUi.showAll = true;   // 방금 남긴 메모가 항상 보이도록
+      cat.memos.push({
+        id: "m" + now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+        text: text,
+        at: now.toISOString(),
+        who: "sechan"
+      });
     } else if (kind === "todo") {
       cat.todos.push({ text: text, done: false });
     } else if (kind === "check") {
@@ -1282,7 +1407,8 @@
       cat.progress.push({ date: stamp(), text: text });
     }
     save();
-    renderDetail();
+    if (kind === "memo") refreshMemos(cat, true);
+    else renderDetail();
     toast("추가했어요");
   }
 
@@ -1411,6 +1537,25 @@
 
     // 종목 탭·가격/수익률 토글 (상세 화면은 다시 그려져도 이 컨테이너는 유지됨)
     $("detail-view").addEventListener("click", function (e) {
+      // 메모 삭제·이전 메모 펼치기
+      var del = e.target.closest("[data-memo-del]");
+      if (del) {
+        var c0 = currentCat();
+        var idx = parseInt(del.getAttribute("data-memo-del"), 10);
+        if (c0 && c0.memos && c0.memos[idx]) {
+          c0.memos.splice(idx, 1);
+          save();
+          refreshMemos(c0);
+          toast("메모를 지웠어요");
+        }
+        return;
+      }
+      var more = e.target.closest("[data-memo-more]");
+      if (more) {
+        memoUi.showAll = true;
+        refreshMemos(currentCat());
+        return;
+      }
       // 오답노트 탭 전환
       var noteTab = e.target.closest("[data-note]");
       if (noteTab) {
@@ -1457,6 +1602,11 @@
       window.visualViewport.addEventListener("scroll", syncKeyboardGap);
       syncKeyboardGap();
     }
+
+    $("composer-type").addEventListener("change", function () {
+      var t = $("composer-type").value;
+      $("composer-input").placeholder = t === "memo" ? "메모 남기기…" : "내용을 입력하고 추가를 눌러 주세요";
+    });
 
     $("composer").addEventListener("submit", function (e) {
       e.preventDefault();
