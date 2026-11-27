@@ -498,9 +498,10 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.01em; }
 }
 @media (hover: hover) {
   .note-del { opacity: 0; transition: opacity .15s ease; }
-  .note:hover .note-del, .note-del:focus-visible { opacity: 1; }
+  .note:hover .note-del, .note-del:focus-visible, .note-del.armed { opacity: 1; }
   .note-del:hover { color: var(--red); }
 }
+.note-del.armed { color: var(--red); font-weight: 700; }
 .memo-av {
   flex: none; display: grid; place-items: center;
   width: 26px; height: 26px; border-radius: 50%;

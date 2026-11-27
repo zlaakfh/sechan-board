@@ -580,6 +580,26 @@
      클피는 왼쪽 시안 말풍선. who가 없는 예전 메모는 세찬님 글로 본다. */
   var MEMO_LIMIT = 20;
   var memoUi = { showAll: false, catId: null };
+  // 삭제는 두 번 눌러야 지운다(서버에 같이 지워지므로 잘못 누른 삭제가 돌이킬 수 없어서).
+  var memoDelTimer = null, memoDelBtn = null;
+
+  function resetMemoDelete() {
+    clearTimeout(memoDelTimer);
+    if (memoDelBtn) {
+      memoDelBtn.removeAttribute("data-armed");
+      memoDelBtn.classList.remove("armed");
+      memoDelBtn.textContent = "삭제";
+    }
+    memoDelBtn = null;
+  }
+  function armMemoDelete(btn) {
+    resetMemoDelete();
+    memoDelBtn = btn;
+    btn.setAttribute("data-armed", "1");
+    btn.classList.add("armed");
+    btn.textContent = "정말 삭제?";
+    memoDelTimer = setTimeout(resetMemoDelete, 4000);
+  }
 
   function memoWho(m) {
     var w = String((m && m.who) || "").trim();
@@ -687,6 +707,7 @@
   // 메모만 다시 그린다(체크·다른 섹션과 화면 위치를 건드리지 않게).
   function refreshMemos(cat, scrollToNew) {
     if (!cat) return;
+    resetMemoDelete();
     var body = $("memo-body");
     var sec = $("memo-section");
     if (!body || !sec) return;
@@ -1540,13 +1561,17 @@
       // 메모 삭제·이전 메모 펼치기
       var del = e.target.closest("[data-memo-del]");
       if (del) {
+        if (del.getAttribute("data-armed") !== "1") { armMemoDelete(del); return; }
         var c0 = currentCat();
         var idx = parseInt(del.getAttribute("data-memo-del"), 10);
         if (c0 && c0.memos && c0.memos[idx]) {
+          resetMemoDelete();
           c0.memos.splice(idx, 1);
           save();
           refreshMemos(c0);
           toast("메모를 지웠어요");
+        } else {
+          resetMemoDelete();
         }
         return;
       }
@@ -1603,10 +1628,12 @@
       syncKeyboardGap();
     }
 
-    $("composer-type").addEventListener("change", function () {
+    function syncComposerHint() {
       var t = $("composer-type").value;
       $("composer-input").placeholder = t === "memo" ? "메모 남기기…" : "내용을 입력하고 추가를 눌러 주세요";
-    });
+    }
+    $("composer-type").addEventListener("change", syncComposerHint);
+    syncComposerHint();
 
     $("composer").addEventListener("submit", function (e) {
       e.preventDefault();
